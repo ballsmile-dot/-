@@ -1,6 +1,12 @@
 import "./style.css";
 import { aiControls } from "./game/ai";
-import { bindInput, input, isCoarsePointer, setTouch } from "./game/input";
+import {
+  bindInput,
+  clearTouch,
+  input,
+  isCoarsePointer,
+  setTouch,
+} from "./game/input";
 import {
   collectItemBoxes,
   ITEM_LABEL,
@@ -46,7 +52,7 @@ app.innerHTML = `
     <div class="panel">
       <div class="brand">카트러시</div>
       <p class="tagline">드리프트하고, 부스터 터뜨리고, 1등으로!</p>
-      <div class="controls-hint">
+      <div class="controls-hint" id="controlsHint">
         <div><span>↑ / W</span>가속</div>
         <div><span>← →</span>조향</div>
         <div><span>Shift</span>드리프트 (게이지 → 부스터)</div>
@@ -95,6 +101,7 @@ const resultOverlay = document.querySelector<HTMLDivElement>("#resultOverlay")!;
 const resultList = document.querySelector<HTMLUListElement>("#resultList")!;
 const resultTitle = document.querySelector<HTMLParagraphElement>("#resultTitle")!;
 const touchControls = document.querySelector<HTMLDivElement>("#touchControls")!;
+const controlsHint = document.querySelector<HTMLDivElement>("#controlsHint")!;
 
 let screen: Screen = "title";
 let track: TrackData = createTrack();
@@ -111,28 +118,44 @@ let anim = 0;
 bindInput();
 wireButtons();
 resize();
-window.addEventListener("resize", resize);
+syncMobileUi();
+window.addEventListener("resize", () => {
+  resize();
+  syncMobileUi();
+});
+window.addEventListener("orientationchange", () => {
+  resize();
+  syncMobileUi();
+});
 
 document.querySelector("#startBtn")!.addEventListener("click", () => startRace());
 document.querySelector("#retryBtn")!.addEventListener("click", () => startRace());
 
 function wireButtons(): void {
   touchControls.querySelectorAll("button[data-act]").forEach((btn) => {
-    const act = (btn as HTMLButtonElement).dataset.act!;
-    const down = (e: Event) => {
+    const el = btn as HTMLButtonElement;
+    const act = el.dataset.act!;
+    const down = (e: PointerEvent) => {
       e.preventDefault();
+      el.setPointerCapture(e.pointerId);
       setTouch(act, true);
-      btn.classList.add("active");
+      el.classList.add("active");
     };
-    const up = (e: Event) => {
+    const up = (e: PointerEvent) => {
       e.preventDefault();
+      if (el.hasPointerCapture(e.pointerId)) {
+        el.releasePointerCapture(e.pointerId);
+      }
       setTouch(act, false);
-      btn.classList.remove("active");
+      el.classList.remove("active");
     };
-    btn.addEventListener("pointerdown", down);
-    btn.addEventListener("pointerup", up);
-    btn.addEventListener("pointercancel", up);
-    btn.addEventListener("pointerleave", up);
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("lostpointercapture", () => {
+      setTouch(act, false);
+      el.classList.remove("active");
+    });
   });
 }
 
@@ -141,6 +164,27 @@ function resize(): void {
   canvas.width = Math.floor(window.innerWidth * dpr);
   canvas.height = Math.floor(window.innerHeight * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function syncMobileUi(): void {
+  const mobile = isCoarsePointer();
+  document.body.classList.toggle("mobile", mobile);
+  if (mobile) {
+    controlsHint.innerHTML = `
+      <div><span>왼쪽</span>조향 · 드리프트</div>
+      <div><span>오른쪽</span>가속 · 브레이크 · 아이템</div>
+      <div>터치 패드로 플레이할 수 있어요</div>
+    `;
+  } else {
+    controlsHint.innerHTML = `
+      <div><span>↑ / W</span>가속</div>
+      <div><span>← →</span>조향</div>
+      <div><span>Shift</span>드리프트 (게이지 → 부스터)</div>
+      <div><span>Space</span>아이템 사용</div>
+    `;
+  }
+  const racing = screen === "countdown" || screen === "racing";
+  touchControls.classList.toggle("show", mobile && racing);
 }
 
 function startRace(): void {
@@ -186,13 +230,16 @@ function startRace(): void {
   hud.classList.remove("hidden");
   countdownEl.classList.remove("hidden");
   countdownEl.textContent = "3";
-  touchControls.classList.toggle("show", isCoarsePointer());
+  clearTouch();
   screen = "countdown";
+  syncMobileUi();
 }
 
 function finishRace(): void {
   screen = "result";
+  clearTouch();
   countdownEl.classList.add("hidden");
+  touchControls.classList.remove("show");
   resultOverlay.classList.remove("hidden");
   resultOverlay.classList.add("active");
 

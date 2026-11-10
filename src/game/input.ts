@@ -78,5 +78,14 @@ export function setTouch(action: string, down: boolean): void {
 }
 
 export function isCoarsePointer(): boolean {
-  return window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 900;
+  return (
+    window.matchMedia("(pointer: coarse)").matches ||
+    window.matchMedia("(hover: none)").matches ||
+    window.innerWidth < 900
+  );
+}
+
+export function clearTouch(): void {
+  touchHeld.clear();
+  refreshFromKeys();
 }

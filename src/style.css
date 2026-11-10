@@ -272,10 +272,12 @@ canvas#game {
 
 .touch-controls {
   position: absolute;
-  inset: auto 0 12px 0;
+  inset: auto 0 0 0;
   display: none;
   justify-content: space-between;
-  padding: 0 12px;
+  align-items: flex-end;
+  padding: 0 max(12px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   pointer-events: none;
   z-index: 5;
 }
@@ -286,29 +288,33 @@ canvas#game {
 
 .pad {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   pointer-events: auto;
 }
 
 .pad.left {
-  grid-template-columns: repeat(2, 64px);
+  grid-template-columns: repeat(2, minmax(64px, 18vw));
 }
 
 .pad.right {
-  grid-template-columns: repeat(2, 64px);
+  grid-template-columns: repeat(2, minmax(64px, 18vw));
 }
 
 .pad button {
-  width: 64px;
-  height: 64px;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 64px;
   border: none;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 6px 0 rgba(12, 74, 110, 0.18);
-  font-size: 1.4rem;
+  font-size: clamp(0.85rem, 3.6vw, 1.25rem);
   font-weight: 900;
   color: var(--ink);
   backdrop-filter: blur(6px);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .pad button:active,
@@ -321,6 +327,9 @@ canvas#game {
 .pad .wide {
   grid-column: span 2;
   width: 100%;
+  aspect-ratio: auto;
+  min-height: 58px;
+  height: 58px;
 }
 
 .result-list {
@@ -355,6 +364,40 @@ canvas#game {
   }
 
   .boost-wrap {
-    bottom: 150px;
+    bottom: calc(168px + env(safe-area-inset-bottom));
   }
+
+  .hud-top {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+  }
+
+  .chip {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .chip .big {
+    font-size: 1.15rem;
+  }
+
+  .item-slot {
+    top: calc(72px + env(safe-area-inset-top));
+    width: 60px;
+    height: 60px;
+    font-size: 1.6rem;
+  }
+
+  .panel {
+    padding: 22px 18px 18px;
+  }
+
+  .brand {
+    font-size: clamp(2.1rem, 12vw, 3rem);
+  }
+}
+
+body.mobile .touch-controls.show {
+  display: flex;
 }
