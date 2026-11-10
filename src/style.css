@@ -224,7 +224,7 @@ canvas#game {
 
 .item-slot {
   position: absolute;
-  top: 16px;
+  top: 88px;
   left: 50%;
   transform: translateX(-50%);
   width: 72px;
