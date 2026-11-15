@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>스파이크 클릭 코딩</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 왼쪽 = 동작 버튼과 로봇 설정, 가운데 = 쌓인 동작 순서, 오른쪽 = 경로 미리보기와 생성된 코드 */
+:root {
+  --bg: #eceff3;
+  --panel: #ffffff;
+  --sunk: #f4f6f9;
+  --ink: #18212c;
+  --muted: #5a6676;
+  --line: #d3dae3;
+  --accent: #f2b300;
+  --accent-ink: #2a2000;
+  --move: #2b74d6;
+  --turn: #7d48cf;
+  --motor: #dd6a1f;
+  --wait: #2f9466;
+  --danger: #c93a3a;
+  --code-bg: #182029;
+  --code-fg: #e4e9ef;
+  --code-cm: #8ea0b4;
+  --code-kw: #ffcf4d;
+  --code-num: #8fd3ff;
+  --mat: #e3eadf;
+  --mat-grid: #c9d3c3;
+  --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151b; --panel: #1a2029; --sunk: #141920; --ink: #e7ecf2; --muted: #9aa7b6; --line: #2c3543;
+    --accent: #ffc727; --accent-ink: #231a00;
+    --move: #5a9bf0; --turn: #a37ae8; --motor: #f08a45; --wait: #4cb986; --danger: #ef6b6b;
+    --code-bg: #0c1015; --code-fg: #e4e9ef; --code-cm: #7f91a6; --code-kw: #ffcf4d; --code-num: #8fd3ff;
+    --mat: #1f2a22; --mat-grid: #2d3b31;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151b; --panel: #1a2029; --sunk: #141920; --ink: #e7ecf2; --muted: #9aa7b6; --line: #2c3543;
+  --accent: #ffc727; --accent-ink: #231a00;
+  --move: #5a9bf0; --turn: #a37ae8; --motor: #f08a45; --wait: #4cb986; --danger: #ef6b6b;
+  --code-bg: #0c1015; --code-fg: #e4e9ef; --code-cm: #7f91a6; --code-kw: #ffcf4d; --code-num: #8fd3ff;
+  --mat: #1f2a22; --mat-grid: #2d3b31;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 40px;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; max-width: 1500px; margin: 0 auto 16px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.hub { width: 44px; height: 44px; border-radius: 10px; background: var(--ink); display: grid; place-items: center; flex: none; }
+.hub span { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
+h1 { font-size: 1.45rem; font-weight: 900; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.mode { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 2px; }
+.mode button { border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 0.88rem; color: var(--muted); }
+.mode button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+
+main { max-width: 1500px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1.05fr); align-items: start; }
+@media (max-width: 1180px) { main { grid-template-columns: 290px minmax(0, 1fr); } .col-out { grid-column: 1 / -1; } }
+@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.panel h2 { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+/* 동작 버튼 */
+.palette { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pbtn { border: 0; border-radius: 10px; padding: 12px 10px; color: #fff; text-align: left; display: flex; flex-direction: column; gap: 2px; font-weight: 700; min-height: 72px; transition: transform .08s ease, filter .12s; }
+.pbtn:hover { filter: brightness(1.08); }
+.pbtn:active { transform: scale(0.97); }
+.pbtn .ic { font-size: 1.4rem; line-height: 1; }
+.pbtn small { font-weight: 400; opacity: 0.88; font-size: 0.74rem; }
+.t-move { background: var(--move); } .t-turn { background: var(--turn); } .t-motor { background: var(--motor); } .t-wait { background: var(--wait); }
+.hint { color: var(--muted); font-size: 0.8rem; margin: 10px 0 0; }
+
+/* 설정 */
+.set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 10px; }
+.set-grid label, .field-l { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+.set-grid .wide { grid-column: 1 / -1; }
+select, input[type="number"] { background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; width: 100%; color: var(--ink); font-size: 0.95rem; }
+.ports { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; background: var(--sunk); font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; color: var(--ink); cursor: pointer; }
+.chip input { margin: 0; accent-color: var(--motor); }
+.check { flex-direction: row !important; align-items: center; gap: 8px !important; color: var(--ink) !important; font-size: 0.85rem !important; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.warn { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); font-size: 0.82rem; font-weight: 600; }
+details.more summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); font-weight: 600; margin-top: 12px; }
+details.more[open] summary { margin-bottom: 10px; }
+
+/* 프로그램 */
+.prog-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.prog-head h2 { margin: 0; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.tbtn { border: 1px solid var(--line); background: var(--sunk); border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-weight: 600; }
+.tbtn:hover { border-color: var(--muted); }
+.tbtn.danger { color: var(--danger); }
+.confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 12%, transparent); font-size: 0.85rem; margin-bottom: 10px; }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; counter-reset: step; }
+.blk { display: grid; grid-template-columns: 30px 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--panel); }
+.blk.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.blk .no { font-family: var(--font-mono); font-weight: 600; color: var(--muted); font-size: 0.9rem; text-align: center; font-variant-numeric: tabular-nums; }
+.blk .bic { width: 40px; height: 40px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 1.25rem; font-weight: 700; }
+.blk .body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.blk .name { font-weight: 700; font-size: 0.95rem; }
+.fields { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.fld { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.fld input[type="number"] { width: 72px; padding: 4px 6px; font-family: var(--font-mono); font-size: 0.95rem; text-align: right; font-variant-numeric: tabular-nums; }
+.fld select { width: auto; padding: 4px 6px; font-size: 0.88rem; }
+.fld .unit { color: var(--ink); font-weight: 600; }
+.ctl { display: grid; grid-template-columns: repeat(2, 30px); gap: 4px; }
+.ctl button { width: 30px; height: 28px; border: 1px solid var(--line); background: var(--sunk); border-radius: 6px; font-size: 0.85rem; line-height: 1; padding: 0; }
+.ctl button:hover { border-color: var(--muted); }
+.ctl button.del:hover { color: var(--danger); border-color: var(--danger); }
+.ctl button:disabled { opacity: 0.35; cursor: default; }
+.empty { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; color: var(--muted); }
+.empty b { color: var(--ink); }
+@media (max-width: 460px) {
+  .blk { grid-template-columns: 34px minmax(0, 1fr) auto; }
+  .blk .no { display: none; }
+  .blk .bic { width: 34px; height: 34px; font-size: 1.05rem; }
+}
+
+/* 미리보기 */
+.mat-wrap { position: relative; width: 100%; aspect-ratio: 236 / 114; max-width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: var(--mat); }
+canvas#mat { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: manipulation; }
+.mat-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
+.mat-bar select { width: auto; padding: 4px 6px; font-size: 0.85rem; }
+.stat { font-family: var(--font-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* 코드 */
+.code-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.code-head h2 { margin: 0; }
+.copy { border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 900; border-radius: 9px; padding: 9px 16px; font-size: 0.92rem; }
+.copy:hover { filter: brightness(1.05); }
+pre.code { margin: 0; background: var(--code-bg); color: var(--code-fg); border-radius: 9px; padding: 14px 16px; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.55; overflow: auto; max-height: 560px; tab-size: 4; }
+pre.code .cm { color: var(--code-cm); }
+pre.code .kw { color: var(--code-kw); }
+pre.code .nu { color: var(--code-num); }
+.how { margin: 12px 0 0; padding-left: 20px; color: var(--muted); font-size: 0.84rem; display: flex; flex-direction: column; gap: 2px; }
+.how b { color: var(--ink); }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+.toast.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="brand">
+    <div class="hub" aria-hidden="true"><span></span></div>
+    <div>
+      <h1>스파이크 클릭 코딩</h1>
+      <p class="sub">버튼을 눌러 동작을 쌓으면 SPIKE Prime 파이썬 코드가 만들어져요</p>
+    </div>
+  </div>
+  <div class="mode" role="group" aria-label="코드 종류">
+    <button type="button" id="mode-spike3" aria-pressed="true">SPIKE 앱 3 파이썬</button>
+    <button type="button" id="mode-pybricks" aria-pressed="false">Pybricks</button>
+  </div>
+</header>
+
+<main>
+  <section class="col">
+    <div class="panel">
+      <h2>동작 추가하기</h2>
+      <div class="palette">
+        <button type="button" class="pbtn t-move" data-add="fwd"><span class="ic">↑</span>앞으로 가기<small>자이로로 똑바로</small></button>
+        <button type="button" class="pbtn t-move" data-add="back"><span class="ic">↓</span>뒤로 가기<small>자이로로 똑바로</small></button>
+        <button type="button" class="pbtn t-turn" data-add="left"><span class="ic">↶</span>왼쪽 회전<small>자이로 각도</small></button>
+        <button type="button" class="pbtn t-turn" data-add="right"><span class="ic">↷</span>오른쪽 회전<small>자이로 각도</small></button>
+        <button type="button" class="pbtn t-motor" data-add="motor"><span class="ic">⟳</span>모터 돌리기<small>팔·집게 등</small></button>
+        <button type="button" class="pbtn t-wait" data-add="wait"><span class="ic">⏱</span>기다리기<small>잠깐 멈춤</small></button>
+      </div>
+      <p class="hint">블록을 선택해 두면 그 다음 칸에 추가돼요.</p>
+    </div>
+
+    <div class="panel">
+      <h2>로봇 설정</h2>
+      <div class="set-grid">
+        <label>왼쪽 바퀴 포트
+          <select id="s-left"></select>
+        </label>
+        <label>오른쪽 바퀴 포트
+          <select id="s-right"></select>
+        </label>
+        <label class="wide">바퀴 크기
+          <select id="s-wheel">
+            <option value="5.6">작은 바퀴 (지름 5.6cm)</option>
+            <option value="8.8">큰 바퀴 (지름 8.8cm)</option>
+            <option value="6.2">중간 바퀴 (지름 6.2cm)</option>
+            <option value="custom">직접 입력</option>
+          </select>
+        </label>
+        <label class="wide" id="wheel-custom-wrap" hidden>바퀴 지름 (cm)
+          <input type="number" id="s-wheel-custom" min="2" max="20" step="0.1" value="5.6">
+        </label>
+        <div class="wide field-l">팔·집게 모터 포트
+          <div class="ports" id="s-attach"></div>
+        </div>
+      </div>
+      <div id="port-warn" class="warn" hidden></div>
+      <details class="more">
+        <summary>고급 설정</summary>
+        <div class="set-grid">
+          <label>직진 보정 세기
+            <input type="number" id="s-kp" min="0.5" max="6" step="0.5" value="2">
+          </label>
+          <label>바퀴 사이 거리 (cm)
+            <input type="number" id="s-axle" min="5" max="30" step="0.1" value="11.2">
+          </label>
+          <label class="wide check"><input type="checkbox" id="s-flip"> 로봇이 반대로 돌면 체크 (자이로 방향 바꾸기)</label>
+        </div>
+        <p class="hint">로봇이 지그재그로 흔들리면 보정 세기를 낮추고, 한쪽으로 휘면 높여요. 바퀴 사이 거리는 Pybricks에서만 써요.</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="panel">
+      <div class="prog-head">
+        <h2>동작 순서 <span class="stat" id="count"></span></h2>
+        <div class="tools">
+          <button type="button" class="tbtn" id="btn-sample">예시 불러오기</button>
+          <button type="button" class="tbtn danger" id="btn-clear">모두 지우기</button>
+        </div>
+      </div>
+      <div class="confirm" id="confirm-clear" hidden>
+        <span>동작을 모두 지울까요?</span>
+        <button type="button" class="tbtn danger" id="yes-clear">지우기</button>
+        <button type="button" class="tbtn" id="no-clear">취소</button>
+      </div>
+      <ol class="list" id="list"></ol>
+    </div>
+  </section>
+
+  <section class="col col-out">
+    <div class="panel">
+      <h2>경기장 미리보기 <span>대략적인 경로예요</span></h2>
+      <div class="mat-wrap"><canvas id="mat" aria-label="로봇이 움직일 경로 미리보기"></canvas></div>
+      <div class="mat-bar">
+        <span>경기장을 눌러 출발 위치를 정해요</span>
+        <label>처음 바라보는 쪽
+          <select id="s-dir">
+            <option value="-90">↑ 위</option>
+            <option value="0">→ 오른쪽</option>
+            <option value="90">↓ 아래</option>
+            <option value="180">← 왼쪽</option>
+          </select>
+        </label>
+        <span>총 이동 <span class="stat" id="total"></span></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="code-head">
+        <h2 id="code-title">파이썬 코드</h2>
+        <button type="button" class="copy" id="btn-copy">코드 복사하기</button>
+      </div>
+      <pre class="code" id="code" tabindex="0"></pre>
+      <ol class="how" id="how"></ol>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  const PORTS = ["A", "B", "C", "D", "E", "F"];
+  const TYPES = {
+    fwd:   { name: "앞으로 가기", ic: "↑", cls: "t-move" },
+    back:  { name: "뒤로 가기",   ic: "↓", cls: "t-move" },
+    left:  { name: "왼쪽 회전",   ic: "↶", cls: "t-turn" },
+    right: { name: "오른쪽 회전", ic: "↷", cls: "t-turn" },
+    motor: { name: "모터 돌리기", ic: "⟳", cls: "t-motor" },
+    wait:  { name: "기다리기",    ic: "⏱", cls: "t-wait" }
+  };
+  const FIELDS = {
+    fwd:   [{ k: "cm", label: "거리", unit: "cm", min: 1, max: 300, step: 1 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
+    back:  [{ k: "cm", label: "거리", unit: "cm", min: 1, max: 300, step: 1 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
+    left:  [{ k: "deg", label: "각도", unit: "°", min: 1, max: 360, step: 5 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
+    right: [{ k: "deg", label: "각도", unit: "°", min: 1, max: 360, step: 5 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
+    motor: [{ k: "port", label: "포트", kind: "port" }, { k: "deg", label: "회전", unit: "°", min: 1, max: 3600, step: 10 }, { k: "dir", label: "방향", kind: "dir" }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
+    wait:  [{ k: "sec", label: "시간", unit: "초", min: 0.1, max: 30, step: 0.1 }]
+  };
+  const DEFAULTS = {
+    fwd: { cm: 30, speed: 50 }, back: { cm: 20, speed: 50 },
+    left: { deg: 90, speed: 40 }, right: { deg: 90, speed: 40 },
+    motor: { deg: 180, dir: 1, speed: 50 }, wait: { sec: 1 }
+  };
+  const SAMPLE = [
+    { type: "fwd", cm: 40, speed: 50 },
+    { type: "right", deg: 90, speed: 40 },
+    { type: "fwd", cm: 25, speed: 40 },
+    { type: "motor", port: "C", deg: 180, dir: 1, speed: 50 },
+    { type: "wait", sec: 0.5 },
+    { type: "motor", port: "C", deg: 180, dir: -1, speed: 50 },
+    { type: "back", cm: 25, speed: 50 },
+    { type: "left", deg: 90, speed: 40 },
+    { type: "back", cm: 40, speed: 60 }
+  ];
+
+  let uid = 1;
+  const withId = (b) => Object.assign({ id: uid++ }, b);
+  const state = {
+    mode: "spike3",
+    blocks: SAMPLE.map(withId),
+    sel: -1,
+    s: { left: "A", right: "B", wheel: "5.6", wheelCustom: 5.6, attach: ["C", "D"], kp: 2, axle: 11.2, flip: false },
+    start: { x: 30, y: 90, dir: -90 }
+  };
+
+  // 저장된 작업 불러오기 (이 브라우저에만 저장)
+  try {
+    const saved = JSON.parse(localStorage.getItem("spike-click-coding") || "null");
+    if (saved && Array.isArray(saved.blocks)) {
+      state.mode = saved.mode === "pybricks" ? "pybricks" : "spike3";
+      state.blocks = saved.blocks.filter((b) => TYPES[b.type]).map(withId);
+      Object.assign(state.s, saved.s || {});
+      Object.assign(state.start, saved.start || {});
+    }
+  } catch (e) {}
+  function save() {
+    try {
+      localStorage.setItem("spike-click-coding", JSON.stringify({
+        mode: state.mode, s: state.s, start: state.start,
+        blocks: state.blocks.map(({ id, ...rest }) => rest)
+      }));
+    } catch (e) {}
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const wheelCm = () => {
+    const v = state.s.wheel === "custom" ? Number(state.s.wheelCustom) : Number(state.s.wheel);
+    return v > 0 ? v : 5.6;
+  };
+  const num = (v) => {
+    const n = Math.round(Number(v) * 100) / 100;
+    return Number.isInteger(n) ? String(n) : String(n);
+  };
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  /* ---------- 설정 패널 ---------- */
+  function fillPortSelect(sel, val) {
+    sel.innerHTML = PORTS.map((p) => `<option value="${p}"${p === val ? " selected" : ""}>${p}</option>`).join("");
+  }
+  function renderSettings() {
+    fillPortSelect($("s-left"), state.s.left);
+    fillPortSelect($("s-right"), state.s.right);
+    $("s-wheel").value = state.s.wheel;
+    $("wheel-custom-wrap").hidden = state.s.wheel !== "custom";
+    $("s-wheel-custom").value = state.s.wheelCustom;
+    $("s-kp").value = state.s.kp;
+    $("s-axle").value = state.s.axle;
+    $("s-flip").checked = !!state.s.flip;
+    $("s-dir").value = String(state.start.dir);
+    $("s-attach").innerHTML = PORTS.map((p) => {
+      const drive = p === state.s.left || p === state.s.right;
+      return `<label class="chip"${drive ? ' style="opacity:.4"' : ""}><input type="checkbox" value="${p}"${state.s.attach.includes(p) ? " checked" : ""}${drive ? " disabled" : ""}> ${p}</label>`;
+    }).join("");
+    $("s-attach").querySelectorAll("input").forEach((cb) => cb.addEventListener("change", () => {
+      const set = new Set(state.s.attach);
+      cb.checked ? set.add(cb.value) : set.delete(cb.value);
+      state.s.attach = PORTS.filter((p) => set.has(p));
+      renderAll();
+    }));
+    const warn = [];
+    if (state.s.left === state.s.right) warn.push("왼쪽과 오른쪽 바퀴 포트가 같아요.");
+    const used = new Set(state.blocks.filter((b) => b.type === "motor").map((b) => b.port));
+    used.forEach((p) => {
+      if (p === state.s.left || p === state.s.right) warn.push(`모터 블록이 바퀴 포트 ${p}를 쓰고 있어요.`);
+    });
+    $("port-warn").hidden = warn.length === 0;
+    $("port-warn").textContent = warn.join(" ");
+  }
+  $("s-left").addEventListener("change", (e) => { state.s.left = e.target.value; state.s.attach = state.s.attach.filter((p) => p !== state.s.left); renderAll(); });
+  $("s-right").addEventListener("change", (e) => { state.s.right = e.target.value; state.s.attach = state.s.attach.filter((p) => p !== state.s.right); renderAll(); });
+  $("s-wheel").addEventListener("change", (e) => { state.s.wheel = e.target.value; renderAll(); });
+  $("s-wheel-custom").addEventListener("input", (e) => { state.s.wheelCustom = e.target.value; refresh(); });
+  $("s-kp").addEventListener("input", (e) => { state.s.kp = e.target.value; refresh(); });
+  $("s-axle").addEventListener("input", (e) => { state.s.axle = e.target.value; refresh(); });
+  $("s-flip").addEventListener("change", (e) => { state.s.flip = e.target.checked; refresh(); });
+  $("s-dir").addEventListener("change", (e) => { state.start.dir = Number(e.target.value); refresh(); });
+
+  /* ---------- 동작 목록 ---------- */
+  function attachOptions() {
+    const list = state.s.attach.length ? state.s.attach : PORTS.filter((p) => p !== state.s.left && p !== state.s.right);
+    return list;
+  }
+  function fieldHtml(b, i, f) {
+    const id = `f-${b.id}-${f.k}`;
+    if (f.kind === "port") {
+      const opts = attachOptions();
+      const all = opts.includes(b.port) ? opts : [b.port, ...opts];
+      return `<label class="fld" for="${id}">${f.label}<select id="${id}" data-i="${i}" data-k="port">${all.map((p) => `<option value="${p}"${p === b.port ? " selected" : ""}>${p}</option>`).join("")}</select></label>`;
+    }
+    if (f.kind === "dir") {
+      return `<label class="fld" for="${id}">${f.label}<select id="${id}" data-i="${i}" data-k="dir" data-num="1"><option value="1"${b.dir === 1 ? " selected" : ""}>↻ 시계 방향</option><option value="-1"${b.dir === -1 ? " selected" : ""}>↺ 반시계 방향</option></select></label>`;
+    }
+    return `<label class="fld" for="${id}">${f.label}<input type="number" inputmode="decimal" id="${id}" data-i="${i}" data-k="${f.k}" data-num="1" min="${f.min}" max="${f.max}" step="${f.step}" value="${b[f.k]}"><span class="unit">${f.unit}</span></label>`;
+  }
+  function renderList() {
+    const ol = $("list");
+    $("count").textContent = state.blocks.length ? `${state.blocks.length}개` : "";
+    if (!state.blocks.length) {
+      ol.innerHTML = `<li class="empty"><b>아직 동작이 없어요.</b><br>왼쪽 버튼을 눌러 첫 동작을 추가해 보세요.</li>`;
+      return;
+    }
+    const n = state.blocks.length;
+    ol.innerHTML = state.blocks.map((b, i) => {
+      const t = TYPES[b.type];
+      return `<li class="blk${i === state.sel ? " sel" : ""}" data-i="${i}">
+        <span class="no">${i + 1}</span>
+        <span class="bic ${t.cls}" aria-hidden="true">${t.ic}</span>
+        <div class="body"><span class="name">${t.name}</span><div class="fields">${FIELDS[b.type].map((f) => fieldHtml(b, i, f)).join("")}</div></div>
+        <div class="ctl">
+          <button type="button" data-act="up" data-i="${i}" aria-label="${i + 1}번 위로" title="위로"${i === 0 ? " disabled" : ""}>▲</button>
+          <button type="button" data-act="dup" data-i="${i}" aria-label="${i + 1}번 복사" title="복사">⧉</button>
+          <button type="button" data-act="down" data-i="${i}" aria-label="${i + 1}번 아래로" title="아래로"${i === n - 1 ? " disabled" : ""}>▼</button>
+          <button type="button" class="del" data-act="del" data-i="${i}" aria-label="${i + 1}번 삭제" title="삭제">✕</button>
+        </div>
+      </li>`;
+    }).join("");
+  }
+  $("list").addEventListener("input", (e) => {
+    const el = e.target;
+    if (!el.dataset.k) return;
+    const b = state.blocks[Number(el.dataset.i)];
+    if (!b) return;
+    if (el.dataset.num) {
+      const v = Number(el.value);
+      if (el.value === "" || Number.isNaN(v)) return;
+      b[el.dataset.k] = v;
+    } else {
+      b[el.dataset.k] = el.value;
+    }
+    refresh();
+  });
+  $("list").addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.tagName === "INPUT" && el.dataset.k) {
+      const b = state.blocks[Number(el.dataset.i)];
+      const f = FIELDS[b.type].find((x) => x.k === el.dataset.k);
+      let v = Number(el.value);
+      if (Number.isNaN(v) || el.value === "") v = DEFAULTS[b.type][f.k];
+      v = clamp(v, f.min, f.max);
+      b[f.k] = v; el.value = v;
+      refresh();
+    }
+    if (el.tagName === "SELECT" && el.dataset.k === "port") renderSettings();
+  });
+  $("list").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (btn) {
+      const i = Number(btn.dataset.i), arr = state.blocks;
+      const act = btn.dataset.act;
+      if (act === "up" && i > 0) { [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]]; state.sel = i - 1; }
+      if (act === "down" && i < arr.length - 1) { [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]]; state.sel = i + 1; }
+      if (act === "dup") { const { id, ...rest } = arr[i]; arr.splice(i + 1, 0, withId(rest)); state.sel = i + 1; }
+      if (act === "del") { arr.splice(i, 1); state.sel = Math.min(state.sel, arr.length - 1); if (state.sel === i) state.sel = -1; }
+      renderAll();
+      return;
+    }
+    if (e.target.closest("input, select, label")) {
+      const li = e.target.closest(".blk");
+      if (li && Number(li.dataset.i) !== state.sel) { state.sel = Number(li.dataset.i); markSel(); drawMat(); }
+      return;
+    }
+    const li = e.target.closest(".blk");
+    if (li) {
+      const i = Number(li.dataset.i);
+      state.sel = state.sel === i ? -1 : i;
+      markSel(); drawMat();
+    }
+  });
+  function markSel() {
+    document.querySelectorAll("#list .blk").forEach((li) => li.classList.toggle("sel", Number(li.dataset.i) === state.sel));
+  }
+
+  document.querySelectorAll("[data-add]").forEach((btn) => btn.addEventListener("click", () => {
+    const type = btn.dataset.add;
+    const b = withId(Object.assign({ type }, DEFAULTS[type]));
+    if (type === "motor") b.port = attachOptions()[0] || "C";
+    const at = state.sel >= 0 ? state.sel + 1 : state.blocks.length;
+    state.blocks.splice(at, 0, b);
+    state.sel = at;
+    renderAll();
+    const li = document.querySelector(`#list .blk[data-i="${at}"]`);
+    if (li) li.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }));
+
+  $("btn-clear").addEventListener("click", () => { $("confirm-clear").hidden = false; });
+  $("no-clear").addEventListener("click", () => { $("confirm-clear").hidden = true; });
+  $("yes-clear").addEventListener("click", () => {
+    state.blocks = []; state.sel = -1; $("confirm-clear").hidden = true; renderAll(); toast("모두 지웠어요");
+  });
+  $("btn-sample").addEventListener("click", () => {
+    state.blocks = SAMPLE.map((b) => withId(Object.assign({}, b)));
+    if (!state.s.attach.includes("C")) state.blocks.forEach((b) => { if (b.type === "motor") b.port = attachOptions()[0] || "C"; });
+    state.sel = -1; renderAll(); toast("예시를 불러왔어요");
+  });
+
+  ["mode-spike3", "mode-pybricks"].forEach((id) => $(id).addEventListener("click", () => {
+    state.mode = id === "mode-spike3" ? "spike3" : "pybricks";
+    renderAll();
+  }));
+
+  /* ---------- 코드 만들기 ---------- */
+  function describe(b) {
+    switch (b.type) {
+      case "fwd": return `앞으로 ${num(b.cm)}cm (속도 ${num(b.speed)}%)`;
+      case "back": return `뒤로 ${num(b.cm)}cm (속도 ${num(b.speed)}%)`;
+      case "left": return `왼쪽으로 ${num(b.deg)}도 회전 (속도 ${num(b.speed)}%)`;
+      case "right": return `오른쪽으로 ${num(b.deg)}도 회전 (속도 ${num(b.speed)}%)`;
+      case "motor": return `${b.port} 모터 ${num(b.deg)}도 ${b.dir === -1 ? "반시계" : "시계"} 방향 (속도 ${num(b.speed)}%)`;
+      case "wait": return `${num(b.sec)}초 기다리기`;
+    }
+    return "";
+  }
+
+  function genSpike3() {
+    const s = state.s;
+    const L = [];
+    L.push("# 스파이크 클릭 코딩으로 만든 코드 (SPIKE 앱 3 파이썬)");
+    L.push("from hub import port, motion_sensor");
+    L.push("import motor, motor_pair, runloop");
+    L.push("");
+    L.push("# ===== 로봇 설정 =====");
+    L.push(`LEFT = port.${s.left}        # 왼쪽 바퀴 모터`);
+    L.push(`RIGHT = port.${s.right}       # 오른쪽 바퀴 모터`);
+    L.push(`WHEEL_CM = ${num(wheelCm())}     # 바퀴 지름 (cm)`);
+    L.push(`KP = ${num(s.kp)}            # 직진할 때 자이로 보정 세기`);
+    L.push(`GYRO_SIGN = ${s.flip ? -1 : 1}       # 로봇이 반대로 돌면 -1로 바꾸기`);
+    L.push("");
+    L.push("motor_pair.pair(motor_pair.PAIR_1, LEFT, RIGHT)");
+    L.push("target = 0  # 로봇이 바라봐야 할 방향 (도, 오른쪽이 +)");
+    L.push("");
+    L.push("def yaw():");
+    L.push("    # 지금 로봇이 바라보는 방향 (오른쪽으로 돌면 +)");
+    L.push("    return -motion_sensor.tilt_angles()[0] / 10 * GYRO_SIGN");
+    L.push("");
+    L.push("def angle_error(goal):");
+    L.push("    # 목표 방향까지 남은 각도 (-180 ~ 180)");
+    L.push("    return (goal - yaw() + 180) % 360 - 180");
+    L.push("");
+    L.push("def cm_to_deg(cm):");
+    L.push("    return int(cm / (WHEEL_CM * 3.1416) * 360)");
+    L.push("");
+    L.push("def vel(pct):");
+    L.push("    # 속도 % 를 모터 속도(도/초)로 바꾸기");
+    L.push("    return int(pct * 10)");
+    L.push("");
+    L.push("async def gyro_straight(cm, pct):");
+    L.push("    # 자이로로 방향을 맞추며 cm 만큼 이동 (음수면 뒤로)");
+    L.push("    goal = cm_to_deg(abs(cm))");
+    L.push("    sign = 1 if cm > 0 else -1");
+    L.push("    motor.reset_relative_position(LEFT, 0)");
+    L.push("    motor.reset_relative_position(RIGHT, 0)");
+    L.push("    while (abs(motor.relative_position(LEFT)) + abs(motor.relative_position(RIGHT))) / 2 < goal:");
+    L.push("        steer = int(angle_error(target) * KP) * sign");
+    L.push("        steer = max(-100, min(100, steer))");
+    L.push("        motor_pair.move(motor_pair.PAIR_1, steer, velocity=vel(pct) * sign)");
+    L.push("        await runloop.sleep_ms(10)");
+    L.push("    motor_pair.stop(motor_pair.PAIR_1, stop=motor.BRAKE)");
+    L.push("");
+    L.push("async def gyro_turn(deg, pct):");
+    L.push("    # 제자리에서 deg 도 회전 (오른쪽 +, 왼쪽 -)");
+    L.push("    global target");
+    L.push("    target += deg");
+    L.push("    while True:");
+    L.push("        err = angle_error(target)");
+    L.push("        if abs(err) <= 1:");
+    L.push("            break");
+    L.push("        v = min(vel(pct), max(100, int(abs(err) * 12)))  # 가까워지면 천천히");
+    L.push("        if err > 0:");
+    L.push("            motor_pair.move_tank(motor_pair.PAIR_1, v, -v)");
+    L.push("        else:");
+    L.push("            motor_pair.move_tank(motor_pair.PAIR_1, -v, v)");
+    L.push("        await runloop.sleep_ms(5)");
+    L.push("    motor_pair.stop(motor_pair.PAIR_1, stop=motor.HOLD)");
+    L.push("");
+    L.push("async def main():");
+    L.push("    global target");
+    L.push("    motion_sensor.reset_yaw(0)");
+    L.push("    target = 0");
+    L.push("    await runloop.sleep_ms(200)");
+    if (!state.blocks.length) L.push("    pass  # 동작을 추가해 주세요");
+    state.blocks.forEach((b, i) => {
+      L.push("");
+      L.push(`    # ${i + 1}. ${describe(b)}`);
+      switch (b.type) {
+        case "fwd": L.push(`    await gyro_straight(${num(b.cm)}, ${num(b.speed)})`); break;
+        case "back": L.push(`    await gyro_straight(-${num(b.cm)}, ${num(b.speed)})`); break;
+        case "right": L.push(`    await gyro_turn(${num(b.deg)}, ${num(b.speed)})`); break;
+        case "left": L.push(`    await gyro_turn(-${num(b.deg)}, ${num(b.speed)})`); break;
+        case "motor": L.push(`    await motor.run_for_degrees(port.${b.port}, ${b.dir === -1 ? "-" : ""}${Math.round(b.deg)}, vel(${num(b.speed)}))`); break;
+        case "wait": L.push(`    await runloop.sleep_ms(${Math.round(b.sec * 1000)})`); break;
+      }
+    });
+    L.push("");
+    L.push("runloop.run(main())");
+    return L.join("\n");
+  }
+
+  function genPybricks() {
+    const s = state.s;
+    const used = PORTS.filter((p) => state.blocks.some((b) => b.type === "motor" && b.port === p));
+    const L = [];
+    L.push("# 스파이크 클릭 코딩으로 만든 코드 (Pybricks)");
+    L.push("from pybricks.hubs import PrimeHub");
+    L.push("from pybricks.pupdevices import Motor");
+    L.push("from pybricks.parameters import Port, Direction");
+    L.push("from pybricks.robotics import DriveBase");
+    L.push("from pybricks.tools import wait");
+    L.push("");
+    L.push("# ===== 로봇 설정 =====");
+    L.push("hub = PrimeHub()  # 허브를 세워서 달았다면 top_side, front_side 를 알려 주세요");
+    L.push(`left_motor = Motor(Port.${s.left}, Direction.COUNTERCLOCKWISE)`);
+    L.push(`right_motor = Motor(Port.${s.right})`);
+    L.push(`robot = DriveBase(left_motor, right_motor, wheel_diameter=${num(wheelCm() * 10)}, axle_track=${num(Number(s.axle) * 10)})`);
+    L.push("robot.use_gyro(True)  # 자이로 센서로 똑바로 가고 정확히 돌기");
+    used.forEach((p) => L.push(`motor_${p} = Motor(Port.${p})`));
+    L.push("");
+    L.push("def straight(cm, pct):");
+    L.push("    robot.settings(straight_speed=pct * 4)  # 속도 % -> mm/초");
+    L.push("    robot.straight(cm * 10)                 # cm -> mm");
+    L.push("");
+    L.push("def turn(deg, pct):");
+    L.push("    robot.settings(turn_rate=pct * 4)  # 속도 % -> 도/초");
+    L.push(`    robot.turn(deg${s.flip ? " * -1" : ""})  # 오른쪽 +, 왼쪽 -`);
+    L.push("");
+    if (!state.blocks.length) L.push("# 동작을 추가해 주세요");
+    state.blocks.forEach((b, i) => {
+      L.push(`# ${i + 1}. ${describe(b)}`);
+      switch (b.type) {
+        case "fwd": L.push(`straight(${num(b.cm)}, ${num(b.speed)})`); break;
+        case "back": L.push(`straight(-${num(b.cm)}, ${num(b.speed)})`); break;
+        case "right": L.push(`turn(${num(b.deg)}, ${num(b.speed)})`); break;
+        case "left": L.push(`turn(-${num(b.deg)}, ${num(b.speed)})`); break;
+        case "motor": L.push(`motor_${b.port}.run_angle(${Math.round(b.speed * 10)}, ${b.dir === -1 ? "-" : ""}${Math.round(b.deg)})`); break;
+        case "wait": L.push(`wait(${Math.round(b.sec * 1000)})`); break;
+      }
+      L.push("");
+    });
+    return L.join("\n").replace(/\n+$/, "\n");
+  }
+
+  function esc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function highlight(code) {
+    const KW = /\b(from|import|def|async|await|while|if|else|return|global|break|pass|True|False)\b/g;
+    return code.split("\n").map((line) => {
+      const h = line.indexOf("#");
+      const head = h >= 0 ? line.slice(0, h) : line;
+      const tail = h >= 0 ? line.slice(h) : "";
+      const body = esc(head).replace(KW, '<span class="kw">$1</span>').replace(/(^|[^\w.])(-?\d+(?:\.\d+)?)\b/g, '$1<span class="nu">$2</span>');
+      return body + (tail ? `<span class="cm">${esc(tail)}</span>` : "");
+    }).join("\n");
+  }
+  let lastCode = "";
+  function renderCode() {
+    const sp = state.mode === "spike3";
+    $("mode-spike3").setAttribute("aria-pressed", String(sp));
+    $("mode-pybricks").setAttribute("aria-pressed", String(!sp));
+    lastCode = sp ? genSpike3() : genPybricks();
+    $("code").innerHTML = highlight(lastCode);
+    $("code-title").textContent = sp ? "SPIKE 앱 3 파이썬 코드" : "Pybricks 코드";
+    $("how").innerHTML = sp
+      ? "<li><b>코드 복사하기</b>를 눌러요.</li><li>SPIKE 앱에서 새 프로젝트를 <b>파이썬</b>으로 만들고 원래 코드를 모두 지운 뒤 붙여 넣어요.</li><li>로봇을 출발 위치에 놓고 가만히 둔 채 실행해요. 처음 2초는 움직이지 마세요.</li>"
+      : "<li><b>코드 복사하기</b>를 눌러요.</li><li>code.pybricks.com 에서 새 파일을 만들고 붙여 넣어요. 허브에 Pybricks 펌웨어가 깔려 있어야 해요.</li><li>로봇을 출발 위치에 놓고 실행해요.</li>";
+  }
+  $("btn-copy").addEventListener("click", () => {
+    const done = () => toast("코드를 복사했어요. 앱에 붙여 넣으세요!");
+    const fallback = () => {
+      const r = document.createRange(); r.selectNodeContents($("code"));
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+      toast(ok ? "코드를 복사했어요. 앱에 붙여 넣으세요!" : "코드를 선택했어요. Ctrl+C 로 복사하세요");
+    };
+    try {
+      navigator.clipboard.writeText(lastCode).then(done, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  /* ---------- 경기장 미리보기 ---------- */
+  const MAT_W = 236, MAT_H = 114;
+  const canvas = $("mat");
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function simulate() {
+    let x = state.start.x, y = state.start.y, h = state.start.dir;
+    const pts = [{ x, y, h, i: -1 }];
+    let dist = 0;
+    state.blocks.forEach((b, i) => {
+      if (b.type === "fwd" || b.type === "back") {
+        const d = (b.type === "fwd" ? 1 : -1) * Number(b.cm || 0);
+        x += Math.cos(h * Math.PI / 180) * d;
+        y += Math.sin(h * Math.PI / 180) * d;
+        dist += Math.abs(d);
+      } else if (b.type === "right") h += Number(b.deg || 0);
+      else if (b.type === "left") h -= Number(b.deg || 0);
+      pts.push({ x, y, h, i, type: b.type });
+    });
+    return { pts, dist };
+  }
+  function drawMat() {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const k = rect.width / MAT_W;
+    ctx.fillStyle = cssVar("--mat"); ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.strokeStyle = cssVar("--mat-grid"); ctx.lineWidth = 1;
+    for (let gx = 10; gx < MAT_W; gx += 10) { ctx.globalAlpha = gx % 50 === 0 ? 1 : 0.5; ctx.beginPath(); ctx.moveTo(gx * k, 0); ctx.lineTo(gx * k, rect.height); ctx.stroke(); }
+    for (let gy = 10; gy < MAT_H; gy += 10) { ctx.globalAlpha = gy % 50 === 0 ? 1 : 0.5; ctx.beginPath(); ctx.moveTo(0, gy * k); ctx.lineTo(rect.width, gy * k); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = cssVar("--muted"); ctx.font = `${Math.max(9, 10 * k / 2.2)}px ${cssVar("--font-mono")}`;
+    ctx.fillText("50cm", 50 * k + 3, rect.height - 4);
+    ctx.fillText("100cm", 100 * k + 3, rect.height - 4);
+
+    const { pts, dist } = simulate();
+    $("total").textContent = `${Math.round(dist)}cm`;
+    const move = cssVar("--move"), accent = cssVar("--accent"), ink = cssVar("--ink");
+    // 경로
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (let j = 1; j < pts.length; j++) {
+      const a = pts[j - 1], b = pts[j];
+      if (a.x === b.x && a.y === b.y) continue;
+      const selSeg = b.i === state.sel;
+      ctx.strokeStyle = selSeg ? accent : move;
+      ctx.lineWidth = selSeg ? 5 : 3;
+      ctx.setLineDash(b.type === "back" ? [6, 5] : []);
+      ctx.beginPath(); ctx.moveTo(a.x * k, a.y * k); ctx.lineTo(b.x * k, b.y * k); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // 출발점
+    ctx.fillStyle = cssVar("--wait");
+    ctx.beginPath(); ctx.arc(pts[0].x * k, pts[0].y * k, 5, 0, Math.PI * 2); ctx.fill();
+    // 선택한 단계 위치 또는 마지막 위치에 로봇 그리기
+    const selPt = state.sel >= 0 ? pts.find((p) => p.i === state.sel) : null;
+    const end = selPt || pts[pts.length - 1];
+    drawRobot(ctx, end.x * k, end.y * k, end.h, k, selPt ? accent : ink);
+  }
+  function drawRobot(ctx, x, y, h, k, color) {
+    const w = 16 * k, l = 20 * k;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(h * Math.PI / 180);
+    ctx.globalAlpha = 0.25; ctx.fillStyle = color;
+    ctx.fillRect(-l / 2, -w / 2, l, w);
+    ctx.globalAlpha = 1; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.strokeRect(-l / 2, -w / 2, l, w);
+    ctx.beginPath(); ctx.moveTo(l / 2 + 4, 0); ctx.lineTo(l / 2 - 6, -6); ctx.lineTo(l / 2 - 6, 6); ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+    ctx.restore();
+  }
+  canvas.addEventListener("click", (e) => {
+    const r = canvas.getBoundingClientRect();
+    const k = r.width / MAT_W;
+    state.start.x = Math.round(clamp((e.clientX - r.left) / k, 0, MAT_W));
+    state.start.y = Math.round(clamp((e.clientY - r.top) / k, 0, MAT_H));
+    refresh();
+  });
+  window.addEventListener("resize", drawMat);
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawMat); } catch (e) {}
+  new MutationObserver(drawMat).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  /* ---------- 공통 ---------- */
+  let tt;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 1800); }
+  function refresh() { renderCode(); drawMat(); save(); }
+  function renderAll() { renderSettings(); renderList(); refresh(); }
+  renderAll();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawMat);
+})();
+</script>
+
+</body>
+</html>
