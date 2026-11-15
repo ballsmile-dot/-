@@ -6,6 +6,7 @@
 </head>
 <body>
 <title>스파이크 클릭 코딩</title>
+<meta name="app-version" content="v2.0">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,6 +74,11 @@ header.top { display: flex; flex-wrap: wrap; align-items: center; justify-conten
 .hub { width: 44px; height: 44px; border-radius: 10px; background: var(--ink); display: grid; place-items: center; flex: none; }
 .hub span { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
 h1 { font-size: 1.45rem; font-weight: 900; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.ver { display: inline-block; vertical-align: middle; margin-left: 8px; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; letter-spacing: 0; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.changelog { max-width: 1500px; margin: 0 auto 14px; font-size: 0.82rem; color: var(--muted); }
+.changelog summary { cursor: pointer; font-weight: 600; }
+.changelog ul { margin: 6px 0 0; padding-left: 20px; }
+.changelog b { color: var(--ink); font-family: var(--font-mono); }
 .sub { margin: 0; color: var(--muted); font-size: 0.88rem; }
 .mode { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 2px; }
 .mode button { border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 0.88rem; color: var(--muted); }
@@ -179,7 +185,7 @@ pre.code .nu { color: var(--code-num); }
   <div class="brand">
     <div class="hub" aria-hidden="true"><span></span></div>
     <div>
-      <h1>스파이크 클릭 코딩</h1>
+      <h1>스파이크 클릭 코딩 <span class="ver">v2.0</span></h1>
       <p class="sub">버튼을 눌러 동작을 쌓으면 SPIKE Prime 파이썬 코드가 만들어져요</p>
     </div>
   </div>
@@ -188,6 +194,13 @@ pre.code .nu { color: var(--code-num); }
     <button type="button" id="mode-pybricks" aria-pressed="false">Pybricks</button>
   </div>
 </header>
+<details class="changelog">
+  <summary>업데이트 기록 (지금 v2.0)</summary>
+  <ul>
+    <li><b>v2.0</b> 2026-11-15 · 컬러센서 2개 라인 정렬 블록, 프로그램 저장·불러오기, .py / 프로그램 파일 받기·열기</li>
+    <li><b>v1.0</b> 2026-11-15 · 첫 버전: 자이로 직진·회전, 모터, 기다리기, 경기장 미리보기, SPIKE 앱 3 / Pybricks 코드</li>
+  </ul>
+</details>
 
 <main>
   <section class="col">
@@ -590,7 +603,7 @@ pre.code .nu { color: var(--code-num); }
   function genSpike3() {
     const s = state.s;
     const L = [];
-    L.push("# 스파이크 클릭 코딩으로 만든 코드 (SPIKE 앱 3 파이썬)");
+    L.push("# 스파이크 클릭 코딩 v2.0으로 만든 코드 (SPIKE 앱 3 파이썬)");
     const al = usesAlign();
     L.push("from hub import port, motion_sensor");
     L.push(al ? "import motor, motor_pair, runloop, color_sensor" : "import motor, motor_pair, runloop");
@@ -715,7 +728,7 @@ pre.code .nu { color: var(--code-num); }
     const s = state.s;
     const used = PORTS.filter((p) => state.blocks.some((b) => b.type === "motor" && b.port === p));
     const L = [];
-    L.push("# 스파이크 클릭 코딩으로 만든 코드 (Pybricks)");
+    L.push("# 스파이크 클릭 코딩 v2.0으로 만든 코드 (Pybricks)");
     L.push("from pybricks.hubs import PrimeHub");
     const al = usesAlign();
     L.push(al ? "from pybricks.pupdevices import Motor, ColorSensor" : "from pybricks.pupdevices import Motor");
