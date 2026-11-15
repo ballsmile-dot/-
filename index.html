@@ -25,6 +25,7 @@
   --turn: #7d48cf;
   --motor: #dd6a1f;
   --wait: #2f9466;
+  --align: #0f7f8c;
   --danger: #c93a3a;
   --code-bg: #182029;
   --code-fg: #e4e9ef;
@@ -41,7 +42,7 @@
   :root:not([data-theme="light"]) {
     --bg: #11151b; --panel: #1a2029; --sunk: #141920; --ink: #e7ecf2; --muted: #9aa7b6; --line: #2c3543;
     --accent: #ffc727; --accent-ink: #231a00;
-    --move: #5a9bf0; --turn: #a37ae8; --motor: #f08a45; --wait: #4cb986; --danger: #ef6b6b;
+    --move: #5a9bf0; --turn: #a37ae8; --motor: #f08a45; --wait: #4cb986; --align: #35b9c6; --danger: #ef6b6b;
     --code-bg: #0c1015; --code-fg: #e4e9ef; --code-cm: #7f91a6; --code-kw: #ffcf4d; --code-num: #8fd3ff;
     --mat: #1f2a22; --mat-grid: #2d3b31;
     color-scheme: dark;
@@ -50,7 +51,7 @@
 :root[data-theme="dark"] {
   --bg: #11151b; --panel: #1a2029; --sunk: #141920; --ink: #e7ecf2; --muted: #9aa7b6; --line: #2c3543;
   --accent: #ffc727; --accent-ink: #231a00;
-  --move: #5a9bf0; --turn: #a37ae8; --motor: #f08a45; --wait: #4cb986; --danger: #ef6b6b;
+  --move: #5a9bf0; --turn: #a37ae8; --motor: #f08a45; --wait: #4cb986; --align: #35b9c6; --danger: #ef6b6b;
   --code-bg: #0c1015; --code-fg: #e4e9ef; --code-cm: #7f91a6; --code-kw: #ffcf4d; --code-num: #8fd3ff;
   --mat: #1f2a22; --mat-grid: #2d3b31;
   color-scheme: dark;
@@ -91,7 +92,8 @@ main { max-width: 1500px; margin: 0 auto; display: grid; gap: 16px; grid-templat
 .pbtn:active { transform: scale(0.97); }
 .pbtn .ic { font-size: 1.4rem; line-height: 1; }
 .pbtn small { font-weight: 400; opacity: 0.88; font-size: 0.74rem; }
-.t-move { background: var(--move); } .t-turn { background: var(--turn); } .t-motor { background: var(--motor); } .t-wait { background: var(--wait); }
+.t-move { background: var(--move); } .t-turn { background: var(--turn); } .t-motor { background: var(--motor); } .t-wait { background: var(--wait); } .t-align { background: var(--align); }
+.pbtn.span2 { grid-column: 1 / -1; min-height: 60px; }
 .hint { color: var(--muted); font-size: 0.8rem; margin: 10px 0 0; }
 
 /* 설정 */
@@ -159,6 +161,15 @@ pre.code .kw { color: var(--code-kw); }
 pre.code .nu { color: var(--code-num); }
 .how { margin: 12px 0 0; padding-left: 20px; color: var(--muted); font-size: 0.84rem; display: flex; flex-direction: column; gap: 2px; }
 .how b { color: var(--ink); }
+.save-row { display: flex; gap: 8px; }
+.save-row input { flex: 1; min-width: 0; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; color: var(--ink); }
+.btn-solid { border: 0; background: var(--ink); color: var(--panel); border-radius: 8px; padding: 7px 14px; font-weight: 700; font-size: 0.88rem; white-space: nowrap; }
+.saves { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.saves li { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--sunk); }
+.saves .nm { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saves .meta { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); white-space: nowrap; }
+.saves .none { color: var(--muted); font-size: 0.84rem; justify-content: center; border-style: dashed; background: transparent; }
+.file-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
 .toast.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -189,6 +200,7 @@ pre.code .nu { color: var(--code-num); }
         <button type="button" class="pbtn t-turn" data-add="right"><span class="ic">↷</span>오른쪽 회전<small>자이로 각도</small></button>
         <button type="button" class="pbtn t-motor" data-add="motor"><span class="ic">⟳</span>모터 돌리기<small>팔·집게 등</small></button>
         <button type="button" class="pbtn t-wait" data-add="wait"><span class="ic">⏱</span>기다리기<small>잠깐 멈춤</small></button>
+        <button type="button" class="pbtn t-align span2" data-add="align"><span class="ic">⊟</span>라인 정렬<small>컬러센서 2개로 검은 선에 똑바로 맞추기</small></button>
       </div>
       <p class="hint">블록을 선택해 두면 그 다음 칸에 추가돼요.</p>
     </div>
@@ -213,6 +225,12 @@ pre.code .nu { color: var(--code-num); }
         <label class="wide" id="wheel-custom-wrap" hidden>바퀴 지름 (cm)
           <input type="number" id="s-wheel-custom" min="2" max="20" step="0.1" value="5.6">
         </label>
+        <label>왼쪽 컬러센서
+          <select id="s-ceL"></select>
+        </label>
+        <label>오른쪽 컬러센서
+          <select id="s-ceR"></select>
+        </label>
         <div class="wide field-l">팔·집게 모터 포트
           <div class="ports" id="s-attach"></div>
         </div>
@@ -229,7 +247,7 @@ pre.code .nu { color: var(--code-num); }
           </label>
           <label class="wide check"><input type="checkbox" id="s-flip"> 로봇이 반대로 돌면 체크 (자이로 방향 바꾸기)</label>
         </div>
-        <p class="hint">로봇이 지그재그로 흔들리면 보정 세기를 낮추고, 한쪽으로 휘면 높여요. 바퀴 사이 거리는 Pybricks에서만 써요.</p>
+        <p class="hint">로봇이 지그재그로 흔들리면 보정 세기를 낮추고, 한쪽으로 휘면 높여요. 바퀴 사이 거리는 Pybricks에서만 써요. 컬러센서는 라인 정렬 블록을 쓸 때만 코드에 들어가요.</p>
       </details>
     </div>
   </section>
@@ -249,6 +267,22 @@ pre.code .nu { color: var(--code-num); }
         <button type="button" class="tbtn" id="no-clear">취소</button>
       </div>
       <ol class="list" id="list"></ol>
+    </div>
+
+    <div class="panel">
+      <h2>내 프로그램 저장 <span>이 컴퓨터 브라우저에 저장돼요</span></h2>
+      <form class="save-row" id="save-form">
+        <input type="text" id="save-name" maxlength="40" placeholder="이름 예) 미션3 집게로 들기" aria-label="저장할 이름">
+        <button type="submit" class="btn-solid">저장</button>
+      </form>
+      <ul class="saves" id="saves"></ul>
+      <div class="file-row">
+        <button type="button" class="tbtn" id="btn-dl-py">코드를 .py 파일로 받기</button>
+        <button type="button" class="tbtn" id="btn-dl-json">프로그램 파일로 받기</button>
+        <button type="button" class="tbtn" id="btn-open">프로그램 파일 열기</button>
+        <input type="file" id="file-open" accept=".json,application/json" hidden>
+      </div>
+      <p class="hint">프로그램 파일(.json)을 받아 두면 다른 컴퓨터에서 열기로 그대로 이어서 만들 수 있어요.</p>
     </div>
   </section>
 
@@ -291,7 +325,8 @@ pre.code .nu { color: var(--code-num); }
     left:  { name: "왼쪽 회전",   ic: "↶", cls: "t-turn" },
     right: { name: "오른쪽 회전", ic: "↷", cls: "t-turn" },
     motor: { name: "모터 돌리기", ic: "⟳", cls: "t-motor" },
-    wait:  { name: "기다리기",    ic: "⏱", cls: "t-wait" }
+    wait:  { name: "기다리기",    ic: "⏱", cls: "t-wait" },
+    align: { name: "라인 정렬",   ic: "⊟", cls: "t-align" }
   };
   const FIELDS = {
     fwd:   [{ k: "cm", label: "거리", unit: "cm", min: 1, max: 300, step: 1 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
@@ -299,12 +334,14 @@ pre.code .nu { color: var(--code-num); }
     left:  [{ k: "deg", label: "각도", unit: "°", min: 1, max: 360, step: 5 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
     right: [{ k: "deg", label: "각도", unit: "°", min: 1, max: 360, step: 5 }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
     motor: [{ k: "port", label: "포트", kind: "port" }, { k: "deg", label: "회전", unit: "°", min: 1, max: 3600, step: 10 }, { k: "dir", label: "방향", kind: "dir" }, { k: "speed", label: "속도", unit: "%", min: 10, max: 100, step: 5 }],
-    wait:  [{ k: "sec", label: "시간", unit: "초", min: 0.1, max: 30, step: 0.1 }]
+    wait:  [{ k: "sec", label: "시간", unit: "초", min: 0.1, max: 30, step: 0.1 }],
+    align: [{ k: "mv", label: "가는 쪽", kind: "mv" }, { k: "speed", label: "속도", unit: "%", min: 10, max: 60, step: 5 }, { k: "thr", label: "검은색 기준", unit: "", min: 5, max: 90, step: 5 }]
   };
   const DEFAULTS = {
     fwd: { cm: 30, speed: 50 }, back: { cm: 20, speed: 50 },
     left: { deg: 90, speed: 40 }, right: { deg: 90, speed: 40 },
-    motor: { deg: 180, dir: 1, speed: 50 }, wait: { sec: 1 }
+    motor: { deg: 180, dir: 1, speed: 50 }, wait: { sec: 1 },
+    align: { mv: 1, speed: 25, thr: 40 }
   };
   const SAMPLE = [
     { type: "fwd", cm: 40, speed: 50 },
@@ -324,7 +361,7 @@ pre.code .nu { color: var(--code-num); }
     mode: "spike3",
     blocks: SAMPLE.map(withId),
     sel: -1,
-    s: { left: "A", right: "B", wheel: "5.6", wheelCustom: 5.6, attach: ["C", "D"], kp: 2, axle: 11.2, flip: false },
+    s: { left: "A", right: "B", ceL: "E", ceR: "F", wheel: "5.6", wheelCustom: 5.6, attach: ["C", "D"], kp: 2, axle: 11.2, flip: false },
     start: { x: 30, y: 90, dir: -90 }
   };
 
@@ -333,7 +370,7 @@ pre.code .nu { color: var(--code-num); }
     const saved = JSON.parse(localStorage.getItem("spike-click-coding") || "null");
     if (saved && Array.isArray(saved.blocks)) {
       state.mode = saved.mode === "pybricks" ? "pybricks" : "spike3";
-      state.blocks = saved.blocks.filter((b) => TYPES[b.type]).map(withId);
+      state.blocks = saved.blocks.filter((b) => b && TYPES[b.type]).map((b) => withId(Object.assign({}, DEFAULTS[b.type], b)));
       Object.assign(state.s, saved.s || {});
       Object.assign(state.start, saved.start || {});
     }
@@ -365,6 +402,8 @@ pre.code .nu { color: var(--code-num); }
   function renderSettings() {
     fillPortSelect($("s-left"), state.s.left);
     fillPortSelect($("s-right"), state.s.right);
+    fillPortSelect($("s-ceL"), state.s.ceL);
+    fillPortSelect($("s-ceR"), state.s.ceR);
     $("s-wheel").value = state.s.wheel;
     $("wheel-custom-wrap").hidden = state.s.wheel !== "custom";
     $("s-wheel-custom").value = state.s.wheelCustom;
@@ -373,7 +412,7 @@ pre.code .nu { color: var(--code-num); }
     $("s-flip").checked = !!state.s.flip;
     $("s-dir").value = String(state.start.dir);
     $("s-attach").innerHTML = PORTS.map((p) => {
-      const drive = p === state.s.left || p === state.s.right;
+      const drive = [state.s.left, state.s.right].includes(p) || (usesAlign() && [state.s.ceL, state.s.ceR].includes(p));
       return `<label class="chip"${drive ? ' style="opacity:.4"' : ""}><input type="checkbox" value="${p}"${state.s.attach.includes(p) ? " checked" : ""}${drive ? " disabled" : ""}> ${p}</label>`;
     }).join("");
     $("s-attach").querySelectorAll("input").forEach((cb) => cb.addEventListener("change", () => {
@@ -382,9 +421,14 @@ pre.code .nu { color: var(--code-num); }
       state.s.attach = PORTS.filter((p) => set.has(p));
       renderAll();
     }));
+    const used = new Set(state.blocks.filter((b) => b.type === "motor").map((b) => b.port));
     const warn = [];
     if (state.s.left === state.s.right) warn.push("왼쪽과 오른쪽 바퀴 포트가 같아요.");
-    const used = new Set(state.blocks.filter((b) => b.type === "motor").map((b) => b.port));
+    if (usesAlign()) {
+      if (state.s.ceL === state.s.ceR) warn.push("왼쪽과 오른쪽 컬러센서 포트가 같아요.");
+      [state.s.ceL, state.s.ceR].forEach((p) => { if (p === state.s.left || p === state.s.right) warn.push(`컬러센서 포트 ${p}가 바퀴 포트와 겹쳐요.`); });
+      used.forEach((p) => { if (p === state.s.ceL || p === state.s.ceR) warn.push(`모터 블록이 컬러센서 포트 ${p}를 쓰고 있어요.`); });
+    }
     used.forEach((p) => {
       if (p === state.s.left || p === state.s.right) warn.push(`모터 블록이 바퀴 포트 ${p}를 쓰고 있어요.`);
     });
@@ -393,6 +437,9 @@ pre.code .nu { color: var(--code-num); }
   }
   $("s-left").addEventListener("change", (e) => { state.s.left = e.target.value; state.s.attach = state.s.attach.filter((p) => p !== state.s.left); renderAll(); });
   $("s-right").addEventListener("change", (e) => { state.s.right = e.target.value; state.s.attach = state.s.attach.filter((p) => p !== state.s.right); renderAll(); });
+  $("s-ceL").addEventListener("change", (e) => { state.s.ceL = e.target.value; renderAll(); });
+  $("s-ceR").addEventListener("change", (e) => { state.s.ceR = e.target.value; renderAll(); });
+  const usesAlign = () => state.blocks.some((b) => b.type === "align");
   $("s-wheel").addEventListener("change", (e) => { state.s.wheel = e.target.value; renderAll(); });
   $("s-wheel-custom").addEventListener("input", (e) => { state.s.wheelCustom = e.target.value; refresh(); });
   $("s-kp").addEventListener("input", (e) => { state.s.kp = e.target.value; refresh(); });
@@ -402,7 +449,7 @@ pre.code .nu { color: var(--code-num); }
 
   /* ---------- 동작 목록 ---------- */
   function attachOptions() {
-    const list = state.s.attach.length ? state.s.attach : PORTS.filter((p) => p !== state.s.left && p !== state.s.right);
+    const list = state.s.attach.length ? state.s.attach : PORTS.filter((p) => ![state.s.left, state.s.right, state.s.ceL, state.s.ceR].includes(p));
     return list;
   }
   function fieldHtml(b, i, f) {
@@ -411,6 +458,9 @@ pre.code .nu { color: var(--code-num); }
       const opts = attachOptions();
       const all = opts.includes(b.port) ? opts : [b.port, ...opts];
       return `<label class="fld" for="${id}">${f.label}<select id="${id}" data-i="${i}" data-k="port">${all.map((p) => `<option value="${p}"${p === b.port ? " selected" : ""}>${p}</option>`).join("")}</select></label>`;
+    }
+    if (f.kind === "mv") {
+      return `<label class="fld" for="${id}">${f.label}<select id="${id}" data-i="${i}" data-k="mv" data-num="1"><option value="1"${b.mv !== -1 ? " selected" : ""}>↑ 앞으로</option><option value="-1"${b.mv === -1 ? " selected" : ""}>↓ 뒤로</option></select></label>`;
     }
     if (f.kind === "dir") {
       return `<label class="fld" for="${id}">${f.label}<select id="${id}" data-i="${i}" data-k="dir" data-num="1"><option value="1"${b.dir === 1 ? " selected" : ""}>↻ 시계 방향</option><option value="-1"${b.dir === -1 ? " selected" : ""}>↺ 반시계 방향</option></select></label>`;
@@ -532,6 +582,7 @@ pre.code .nu { color: var(--code-num); }
       case "right": return `오른쪽으로 ${num(b.deg)}도 회전 (속도 ${num(b.speed)}%)`;
       case "motor": return `${b.port} 모터 ${num(b.deg)}도 ${b.dir === -1 ? "반시계" : "시계"} 방향 (속도 ${num(b.speed)}%)`;
       case "wait": return `${num(b.sec)}초 기다리기`;
+      case "align": return `${b.mv === -1 ? "뒤로" : "앞으로"} 가서 검은 선에 맞추기 (속도 ${num(b.speed)}%, 기준 ${num(b.thr)})`;
     }
     return "";
   }
@@ -540,8 +591,9 @@ pre.code .nu { color: var(--code-num); }
     const s = state.s;
     const L = [];
     L.push("# 스파이크 클릭 코딩으로 만든 코드 (SPIKE 앱 3 파이썬)");
+    const al = usesAlign();
     L.push("from hub import port, motion_sensor");
-    L.push("import motor, motor_pair, runloop");
+    L.push(al ? "import motor, motor_pair, runloop, color_sensor" : "import motor, motor_pair, runloop");
     L.push("");
     L.push("# ===== 로봇 설정 =====");
     L.push(`LEFT = port.${s.left}        # 왼쪽 바퀴 모터`);
@@ -549,6 +601,10 @@ pre.code .nu { color: var(--code-num); }
     L.push(`WHEEL_CM = ${num(wheelCm())}     # 바퀴 지름 (cm)`);
     L.push(`KP = ${num(s.kp)}            # 직진할 때 자이로 보정 세기`);
     L.push(`GYRO_SIGN = ${s.flip ? -1 : 1}       # 로봇이 반대로 돌면 -1로 바꾸기`);
+    if (al) {
+      L.push(`LEFT_EYE = port.${s.ceL}    # 왼쪽 컬러센서`);
+      L.push(`RIGHT_EYE = port.${s.ceR}   # 오른쪽 컬러센서`);
+    }
     L.push("");
     L.push("motor_pair.pair(motor_pair.PAIR_1, LEFT, RIGHT)");
     L.push("target = 0  # 로봇이 바라봐야 할 방향 (도, 오른쪽이 +)");
@@ -597,6 +653,40 @@ pre.code .nu { color: var(--code-num); }
     L.push("        await runloop.sleep_ms(5)");
     L.push("    motor_pair.stop(motor_pair.PAIR_1, stop=motor.HOLD)");
     L.push("");
+    if (al) {
+      L.push("async def line_align(pct, sign, black):");
+      L.push("    # 컬러센서 2개로 검은 선에 로봇을 똑바로 맞추기");
+      L.push("    # sign: 1 = 앞으로, -1 = 뒤로 / black: 이 값보다 어두우면 검은 선");
+      L.push("    global target");
+      L.push("    v = vel(pct) * sign");
+      L.push("    left_done = False");
+      L.push("    right_done = False");
+      L.push("    # 1단계: 각 바퀴가 자기 쪽 센서가 선을 만날 때까지 앞으로");
+      L.push("    while not (left_done and right_done):");
+      L.push("        if color_sensor.reflection(LEFT_EYE) < black:");
+      L.push("            left_done = True");
+      L.push("        if color_sensor.reflection(RIGHT_EYE) < black:");
+      L.push("            right_done = True");
+      L.push("        lv = 0 if left_done else v");
+      L.push("        rv = 0 if right_done else v");
+      L.push("        motor_pair.move_tank(motor_pair.PAIR_1, lv, rv)");
+      L.push("        await runloop.sleep_ms(5)");
+      L.push("    motor_pair.stop(motor_pair.PAIR_1, stop=motor.HOLD)");
+      L.push("    # 2단계: 선의 가장자리에 양쪽을 천천히 다시 맞추기");
+      L.push("    for i in range(80):");
+      L.push("        le = color_sensor.reflection(LEFT_EYE) - black");
+      L.push("        re = color_sensor.reflection(RIGHT_EYE) - black");
+      L.push("        if abs(le) <= 4 and abs(re) <= 4:");
+      L.push("            break");
+      L.push("        lv = max(-120, min(120, le * 4)) * sign");
+      L.push("        rv = max(-120, min(120, re * 4)) * sign");
+      L.push("        motor_pair.move_tank(motor_pair.PAIR_1, int(lv), int(rv))");
+      L.push("        await runloop.sleep_ms(10)");
+      L.push("    motor_pair.stop(motor_pair.PAIR_1, stop=motor.HOLD)");
+      L.push("    await runloop.sleep_ms(100)");
+      L.push("    target = yaw()  # 지금 바라보는 방향을 새 기준으로 (자이로 오차 없애기)");
+      L.push("");
+    }
     L.push("async def main():");
     L.push("    global target");
     L.push("    motion_sensor.reset_yaw(0)");
@@ -613,6 +703,7 @@ pre.code .nu { color: var(--code-num); }
         case "left": L.push(`    await gyro_turn(-${num(b.deg)}, ${num(b.speed)})`); break;
         case "motor": L.push(`    await motor.run_for_degrees(port.${b.port}, ${b.dir === -1 ? "-" : ""}${Math.round(b.deg)}, vel(${num(b.speed)}))`); break;
         case "wait": L.push(`    await runloop.sleep_ms(${Math.round(b.sec * 1000)})`); break;
+        case "align": L.push(`    await line_align(${num(b.speed)}, ${b.mv === -1 ? -1 : 1}, ${num(b.thr)})`); break;
       }
     });
     L.push("");
@@ -626,7 +717,8 @@ pre.code .nu { color: var(--code-num); }
     const L = [];
     L.push("# 스파이크 클릭 코딩으로 만든 코드 (Pybricks)");
     L.push("from pybricks.hubs import PrimeHub");
-    L.push("from pybricks.pupdevices import Motor");
+    const al = usesAlign();
+    L.push(al ? "from pybricks.pupdevices import Motor, ColorSensor" : "from pybricks.pupdevices import Motor");
     L.push("from pybricks.parameters import Port, Direction");
     L.push("from pybricks.robotics import DriveBase");
     L.push("from pybricks.tools import wait");
@@ -638,6 +730,10 @@ pre.code .nu { color: var(--code-num); }
     L.push(`robot = DriveBase(left_motor, right_motor, wheel_diameter=${num(wheelCm() * 10)}, axle_track=${num(Number(s.axle) * 10)})`);
     L.push("robot.use_gyro(True)  # 자이로 센서로 똑바로 가고 정확히 돌기");
     used.forEach((p) => L.push(`motor_${p} = Motor(Port.${p})`));
+    if (al) {
+      L.push(`left_eye = ColorSensor(Port.${s.ceL})   # 왼쪽 컬러센서`);
+      L.push(`right_eye = ColorSensor(Port.${s.ceR})  # 오른쪽 컬러센서`);
+    }
     L.push("");
     L.push("def straight(cm, pct):");
     L.push("    robot.settings(straight_speed=pct * 4)  # 속도 % -> mm/초");
@@ -647,6 +743,41 @@ pre.code .nu { color: var(--code-num); }
     L.push("    robot.settings(turn_rate=pct * 4)  # 속도 % -> 도/초");
     L.push(`    robot.turn(deg${s.flip ? " * -1" : ""})  # 오른쪽 +, 왼쪽 -`);
     L.push("");
+    if (al) {
+      L.push("def line_align(pct, sign, black):");
+      L.push("    # 컬러센서 2개로 검은 선에 로봇을 똑바로 맞추기");
+      L.push("    # sign: 1 = 앞으로, -1 = 뒤로 / black: 이 값보다 어두우면 검은 선");
+      L.push("    robot.stop()");
+      L.push("    v = pct * 10 * sign");
+      L.push("    left_done = False");
+      L.push("    right_done = False");
+      L.push("    # 1단계: 각 바퀴가 자기 쪽 센서가 선을 만날 때까지 앞으로");
+      L.push("    while not (left_done and right_done):");
+      L.push("        if not left_done and left_eye.reflection() < black:");
+      L.push("            left_done = True");
+      L.push("            left_motor.hold()");
+      L.push("        if not right_done and right_eye.reflection() < black:");
+      L.push("            right_done = True");
+      L.push("            right_motor.hold()");
+      L.push("        if not left_done:");
+      L.push("            left_motor.run(v)");
+      L.push("        if not right_done:");
+      L.push("            right_motor.run(v)");
+      L.push("        wait(5)");
+      L.push("    # 2단계: 선의 가장자리에 양쪽을 천천히 다시 맞추기");
+      L.push("    for i in range(80):");
+      L.push("        le = left_eye.reflection() - black");
+      L.push("        re = right_eye.reflection() - black");
+      L.push("        if abs(le) <= 4 and abs(re) <= 4:");
+      L.push("            break");
+      L.push("        left_motor.run(max(-120, min(120, le * 4)) * sign)");
+      L.push("        right_motor.run(max(-120, min(120, re * 4)) * sign)");
+      L.push("        wait(10)");
+      L.push("    left_motor.hold()");
+      L.push("    right_motor.hold()");
+      L.push("    wait(100)");
+      L.push("");
+    }
     if (!state.blocks.length) L.push("# 동작을 추가해 주세요");
     state.blocks.forEach((b, i) => {
       L.push(`# ${i + 1}. ${describe(b)}`);
@@ -657,6 +788,7 @@ pre.code .nu { color: var(--code-num); }
         case "left": L.push(`turn(-${num(b.deg)}, ${num(b.speed)})`); break;
         case "motor": L.push(`motor_${b.port}.run_angle(${Math.round(b.speed * 10)}, ${b.dir === -1 ? "-" : ""}${Math.round(b.deg)})`); break;
         case "wait": L.push(`wait(${Math.round(b.sec * 1000)})`); break;
+        case "align": L.push(`line_align(${num(b.speed)}, ${b.mv === -1 ? -1 : 1}, ${num(b.thr)})`); break;
       }
       L.push("");
     });
@@ -752,6 +884,14 @@ pre.code .nu { color: var(--code-num); }
       ctx.beginPath(); ctx.moveTo(a.x * k, a.y * k); ctx.lineTo(b.x * k, b.y * k); ctx.stroke();
     }
     ctx.setLineDash([]);
+    // 라인 정렬 지점 표시
+    pts.forEach((p) => {
+      if (p.type !== "align") return;
+      ctx.save(); ctx.translate(p.x * k, p.y * k); ctx.rotate(p.h * Math.PI / 180);
+      ctx.strokeStyle = cssVar("--align"); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(4, -9); ctx.lineTo(4, 9); ctx.stroke();
+      ctx.restore();
+    });
     // 출발점
     ctx.fillStyle = cssVar("--wait");
     ctx.beginPath(); ctx.arc(pts[0].x * k, pts[0].y * k, 5, 0, Math.PI * 2); ctx.fill();
@@ -783,12 +923,96 @@ pre.code .nu { color: var(--code-num); }
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawMat); } catch (e) {}
   new MutationObserver(drawMat).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+  /* ---------- 저장 ---------- */
+  const SAVE_KEY = "spike-click-coding-saves";
+  function readSaves() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function writeSaves(list) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+  function snapshot() { return { app: "spike-click-coding", version: 2, mode: state.mode, s: JSON.parse(JSON.stringify(state.s)), start: Object.assign({}, state.start), blocks: state.blocks.map(({ id, ...rest }) => rest) }; }
+  function loadSnapshot(d) {
+    if (!d || !Array.isArray(d.blocks)) return false;
+    state.mode = d.mode === "pybricks" ? "pybricks" : "spike3";
+    state.blocks = d.blocks.filter((b) => b && TYPES[b.type]).map((b) => withId(Object.assign({}, DEFAULTS[b.type], b)));
+    Object.assign(state.s, d.s || {});
+    Object.assign(state.start, d.start || {});
+    state.sel = -1;
+    renderAll();
+    return true;
+  }
+  const escHtml = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let pendingDel = -1;
+  function renderSaves() {
+    const list = readSaves();
+    const ul = $("saves");
+    if (!list.length) { ul.innerHTML = `<li class="none">아직 저장한 프로그램이 없어요.</li>`; return; }
+    ul.innerHTML = list.map((sv, i) => {
+      const d = new Date(sv.at);
+      const when = isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      const btns = pendingDel === i
+        ? `<button type="button" class="tbtn danger" data-sv="del-yes" data-i="${i}">정말 삭제</button><button type="button" class="tbtn" data-sv="del-no">취소</button>`
+        : `<button type="button" class="tbtn" data-sv="load" data-i="${i}">불러오기</button><button type="button" class="tbtn danger" data-sv="del" data-i="${i}" aria-label="${escHtml(sv.name)} 삭제">삭제</button>`;
+      return `<li><span class="nm">${escHtml(sv.name)}</span><span class="meta">${sv.data.blocks.length}개 · ${when}</span>${btns}</li>`;
+    }).join("");
+  }
+  $("save-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("save-name").value.trim() || `프로그램 ${new Date().toLocaleString("ko-KR")}`;
+    const list = readSaves();
+    const at = list.findIndex((sv) => sv.name === name);
+    const item = { name, at: Date.now(), data: snapshot() };
+    if (at >= 0) list.splice(at, 1);
+    list.unshift(item);
+    if (!writeSaves(list)) { toast("이 브라우저에서는 저장이 막혀 있어요. 파일로 받아 두세요"); return; }
+    pendingDel = -1; renderSaves();
+    toast(at >= 0 ? `'${name}' 덮어써서 저장했어요` : `'${name}' 저장했어요`);
+  });
+  $("saves").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-sv]");
+    if (!b) return;
+    const list = readSaves(), i = Number(b.dataset.i);
+    if (b.dataset.sv === "load" && list[i]) { loadSnapshot(list[i].data); $("save-name").value = list[i].name; toast(`'${list[i].name}' 불러왔어요`); }
+    if (b.dataset.sv === "del") pendingDel = i;
+    if (b.dataset.sv === "del-no") pendingDel = -1;
+    if (b.dataset.sv === "del-yes" && list[i]) { const n = list[i].name; list.splice(i, 1); writeSaves(list); pendingDel = -1; toast(`'${n}' 삭제했어요`); }
+    renderSaves();
+  });
+  function fileBase() {
+    const n = $("save-name").value.trim() || "spike_program";
+    return n.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+  }
+  function downloadText(name, text, type) {
+    try {
+      const url = URL.createObjectURL(new Blob([text], { type }));
+      const a = document.createElement("a");
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast(`${name} 파일을 받았어요`);
+    } catch (e) { toast("파일 받기가 안 돼요. 코드 복사하기를 써 주세요"); }
+  }
+  $("btn-dl-py").addEventListener("click", () => downloadText(`${fileBase()}.py`, lastCode, "text/x-python"));
+  $("btn-dl-json").addEventListener("click", () => downloadText(`${fileBase()}.json`, JSON.stringify(Object.assign({ name: $("save-name").value.trim() }, snapshot()), null, 2), "application/json"));
+  $("btn-open").addEventListener("click", () => $("file-open").click());
+  $("file-open").addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const d = JSON.parse(r.result);
+        if (loadSnapshot(d)) { if (d.name) $("save-name").value = d.name; toast("프로그램 파일을 열었어요"); }
+        else toast("스파이크 클릭 코딩 프로그램 파일이 아니에요");
+      } catch (err) { toast("파일을 읽지 못했어요. .json 프로그램 파일인지 확인해 주세요"); }
+      e.target.value = "";
+    };
+    r.readAsText(f);
+  });
+
   /* ---------- 공통 ---------- */
   let tt;
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 1800); }
   function refresh() { renderCode(); drawMat(); save(); }
   function renderAll() { renderSettings(); renderList(); refresh(); }
   renderAll();
+  renderSaves();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawMat);
 })();
 </script>
