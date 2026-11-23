@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>삼별초, 어쩔 수 없는 선택</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #1a1410;
+      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #wrap {
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      background: #2c2419;
+    }
+  </style>
+</head>
+<body>
+<div id="wrap"><canvas id="game"></canvas></div>
+<script>
+(function () {
+  'use strict';
+
+  // --- 설정 ---
+  const W = 1280, H = 720;
+  const FONT = "'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif";
+  const STAGE_DURATION = 120; // 초 (~2분)
+  const STAGE3_DURATION = 150;
+  const MAX_ENEMIES = 28;
+  const MAX_BULLETS = 60;
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  // --- 오디오 ---
+  let audioCtx = null;
+  let muted = false;
+  function beep(freq, dur, type) {
+    if (muted) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq;
+      g.gain.value = 0.06;
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      o.stop(audioCtx.currentTime + dur);
+    } catch (e) { /* ignore */ }
+  }
+
+  // --- localStorage ---
+  const LS_BEST = 'sambyeolcho_best';
+  function getBest() { return parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0; }
+  function setBest(n) { if (n > getBest()) localStorage.setItem(LS_BEST, String(n)); }
+
+  // --- 입력 ---
+  const keys = {};
+  let touchJoystick = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, dx: 0, dy: 0 };
+  let touchButtons = [];
+
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+    if (e.code === 'KeyP') togglePause();
+  });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+  function getCanvasPos(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const sx = W / r.width, sy = H / r.height;
+    return { x: (clientX - r.left) * sx, y: (clientY - r.top) * sy };
+  }
+
+  canvas.addEventListener('touchstart', onTouch, { passive: false });
+  canvas.addEventListener('touchmove', onTouch, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+  canvas.addEventListener('mousedown', e => {
+    const p = getCanvasPos(e.clientX, e.clientY);
+    handlePointerDown(p.x, p.y, -1);
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (touchJoystick.active && touchJoystick.id === -1) {
+      const p = getCanvasPos(e.clientX, e.clientY);
+      updateJoystick(p.x, p.y);
+    }
+  });
+  canvas.addEventListener('mouseup', () => { if (touchJoystick.id === -1) resetJoystick(); });
+
+  function onTouch(e) {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const p = getCanvasPos(t.clientX, t.clientY);
+      if (e.type === 'touchstart') handlePointerDown(p.x, p.y, t.identifier);
+      else if (e.type === 'touchmove' && touchJoystick.active && touchJoystick.id === t.identifier)
+        updateJoystick(p.x, p.y);
+    }
+    for (let j = 0; j < e.touches.length; j++) {
+      const t = e.touches[j];
+      if (touchJoystick.active && touchJoystick.id === t.identifier) {
+        const p = getCanvasPos(t.clientX, t.clientY);
+        updateJoystick(p.x, p.y);
+      }
+    }
+  }
+  function onTouchEnd(e) {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (touchJoystick.id === e.changedTouches[i].identifier) resetJoystick();
+    }
+    touchButtons = touchButtons.filter(b => {
+      for (let j = 0; j < e.touches.length; j++)
+        if (e.touches[j].identifier === b.id) return true;
+      return false;
+    });
+  }
+
+  function handlePointerDown(x, y, id) {
+    if (state === 'play' && x < W * 0.5) {
+      touchJoystick.active = true;
+      touchJoystick.id = id;
+      touchJoystick.ox = touchJoystick.x = Math.min(x, W * 0.4);
+      touchJoystick.oy = touchJoystick.y = H * 0.75;
+      touchJoystick.dx = touchJoystick.dy = 0;
+      updateJoystick(x, y);
+    }
+    clickUI(x, y);
+  }
+
+  function updateJoystick(x, y) {
+    const maxR = 70;
+    let dx = x - touchJoystick.ox, dy = y - touchJoystick.oy;
+    const len = Math.hypot(dx, dy) || 1;
+    if (len > maxR) { dx = dx / len * maxR; dy = dy / len * maxR; }
+    touchJoystick.x = touchJoystick.ox + dx;
+    touchJoystick.y = touchJoystick.oy + dy;
+    touchJoystick.dx = dx / maxR;
+    touchJoystick.dy = dy / maxR;
+  }
+  function resetJoystick() {
+    touchJoystick.active = false;
+    touchJoystick.id = null;
+    touchJoystick.dx = touchJoystick.dy = 0;
+  }
+
+  function moveInput() {
+    let mx = 0, my = 0;
+    if (keys.ArrowLeft || keys.KeyA) mx -= 1;
+    if (keys.ArrowRight || keys.KeyD) mx += 1;
+    if (keys.ArrowUp || keys.KeyW) my -= 1;
+    if (keys.ArrowDown || keys.KeyS) my += 1;
+    if (touchJoystick.active) { mx = touchJoystick.dx; my = touchJoystick.dy; }
+    const l = Math.hypot(mx, my);
+    if (l > 1) { mx /= l; my /= l; }
+    return { mx, my };
+  }
+
+  function shooting() {
+    if (touchJoystick.active && state === 'play') return true;
+    return keys.Space;
+  }
+
+  // --- 게임 상태 ---
+  let state = 'start'; // start, intro, choice, play, pause, retreat, stageEnd, ending
+  let difficulty = 'normal'; // easy, normal
+  let stageIndex = 0;
+  let lastTime = 0;
+  let stageTimer = 0;
+  let score = 0;
+  let morale = 100;
+  let moraleMax = 100;
+  let fireCooldown = 0;
+  let spawnTimer = 0;
+  let scrollY = 0;
+  let player = { x: W / 2, y: H * 0.6, r: 22, angle: 0 };
+  let enemies = [];
+  let bullets = [];
+  let particles = [];
+  let choiceRecord = [];
+  let stageStats = { survived: 0, hits: 0 };
+  let uiButtons = [];
+  let choiceHover = -1;
+  let pauseFrom = '';
+  let introHistMsg = '';
+  const muteBtnDef = () => ({ id: 'mute', label: muted ? '소리 켜기' : '소리 끄기', x: W - 150, y: 16, w: 130, h: 40 });
+
+  const STAGES = [
+    {
+      id: 1,
+      title: '1단계: 강화도 탈출 (1270)',
+      intro: [
+        '고려 조정은 몽골(원)과 화친하고 개경으로 돌아갔어요.',
+        '배중손은 삼별초를 이끌고 배 약 천 척으로 남쪽으로 떠났습니다.',
+        '뒤쫓는 배와 화살을 피하며 바다를 지나가 보세요.'
+      ],
+      mode: 'sea'
+    },
+    {
+      id: 2,
+      title: '2단계: 진도 용장성 (1270–1271)',
+      intro: [
+        '삼별초는 진도의 용장성에 머물며 성벽을 지켰어요.',
+        '아래와 옆에서 적군이 다가옵니다.',
+        '성벽 근처를 이동하며 침입을 막아 보세요.'
+      ],
+      mode: 'wall'
+    },
+    {
+      id: 3,
+      title: '3단계: 제주 항파두리성 (1271–1273)',
+      intro: [
+        '진도가 무너진 뒤 김통정은 남은 병력을 이끌고 제주로 갔어요.',
+        '여몽연합군이 끊임없이 공격합니다.',
+        '오래 버틸수록 높은 점수를 받아요. 역사적으로 이 성은 1273년에 함락되었습니다.'
+      ],
+      mode: 'jeju'
+    }
+  ];
+
+  const CHOICES = [
+    {
+      key: 'start',
+      question: '조정이 개경으로 돌아가라고 합니다. 따를까요, 남아서 싸울까요?',
+      a: '개경으로 간다', b: '남아서 싸운다',
+      hist: '삼별초는 조정의 명령을 따르지 않고 남아 싸웠어요.',
+      views: {
+        sam: '조정을 믿기 어렵고, 몽골에게 맡길 수 없다.',
+        court: '나라를 살리려면 화친하고 수도로 돌아가야 한다.',
+        people: '전쟁이 끝나길 바라지만 누구 말을 들을지 헷갈린다.'
+      },
+      effectA: { morale: 15, fire: 0 }, effectB: { morale: 0, fire: 0.12 }
+    },
+    {
+      key: 'grain',
+      question: '곡식이 모자랍니다. 군사에게 먼저 줄까요, 백성에게 먼저 줄까요?',
+      a: '군사에게 먼저', b: '백성에게 먼저',
+      hist: '실제로는 곡식이 부족해 군사와 백성 모두 힘든 시기였어요.',
+      views: {
+        sam: '싸우려면 군사의 힘이 필요하다.',
+        court: '백성이 굶으면 나라의 뿌리가 흔들린다.',
+        people: '배고픔과 두려움이 공존했을 것이다.'
+      },
+      effectA: { morale: 0, fire: 0.1 }, effectB: { morale: 20, fire: -0.05 }
+    },
+    {
+      key: 'jindo',
+      question: '진도가 무너졌습니다. 항복할까요, 제주로 건너갈까요?',
+      a: '항복한다', b: '제주로 간다',
+      hist: '삼별초는 항복하지 않고 제주 항파두리성으로 옮겨 저항을 이어갔어요.',
+      views: {
+        sam: '끝까지 자유를 지키고 싶다.',
+        court: '더 싸우면 피해가 커질 수 있다.',
+        people: '전쟁이 언제 끝날지 모른다.'
+      },
+      effectA: { morale: 25, fire: -0.08 }, effectB: { morale: 5, fire: 0.08 }
+    }
+  ];
+
+  let modifiers = { fireMul: 1, moraleBonus: 0 };
+
+  function diffMul() { return difficulty === 'easy' ? 0.65 : 1; }
+
+  function resize() {
+    const wrap = document.getElementById('wrap');
+    const aw = wrap.clientWidth, ah = wrap.clientHeight;
+    const scale = Math.min(aw / W, ah / H);
+    const dw = Math.floor(W * scale), dh = Math.floor(H * scale);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.width = dw + 'px';
+    canvas.style.height = dh + 'px';
+    canvas.width = Math.floor(dw * dpr);
+    canvas.height = Math.floor(dh * dpr);
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function togglePause() {
+    if (state === 'play') { pauseFrom = 'play'; state = 'pause'; }
+    else if (state === 'pause') state = pauseFrom || 'play';
+  }
+
+  function resetStageEntities() {
+    enemies = [];
+    bullets = [];
+    particles = [];
+    const mode = STAGES[stageIndex].mode;
+    if (mode === 'sea') player = { x: W / 2, y: H * 0.65, r: 24, angle: -Math.PI / 2 };
+    else if (mode === 'wall') player = { x: W / 2, y: H * 0.32, r: 18, angle: 0 };
+    else player = { x: W / 2, y: H * 0.45, r: 20, angle: 0 };
+    morale = moraleMax + modifiers.moraleBonus;
+    morale = Math.min(morale, 120);
+    fireCooldown = 0;
+    spawnTimer = 0;
+    scrollY = 0;
+    stageTimer = stageIndex === 2 ? STAGE3_DURATION : STAGE_DURATION;
+    stageStats = { survived: 0, hits: 0 };
+  }
+
+  function startIntro(idx) {
+    stageIndex = idx;
+    state = 'intro';
+    uiButtons = [{ id: 'next', label: '다음', x: W / 2 - 80, y: H - 90, w: 160, h: 56 }];
+  }
+
+  function showChoice() {
+    state = 'choice';
+    choiceHover = -1;
+    uiButtons = [];
+    beep(440, 0.08, 'sine');
+  }
+
+  function beginPlay() {
+    state = 'play';
+    introHistMsg = '';
+    resetStageEntities();
+    uiButtons = [];
+  }
+
+  function applyChoice(choiceIdx, pick) {
+    const c = CHOICES[choiceIdx];
+    const eff = pick === 'a' ? c.effectA : c.effectB;
+    if (eff.morale) modifiers.moraleBonus += eff.morale;
+    if (eff.fire) modifiers.fireMul += eff.fire;
+    choiceRecord.push({
+      question: c.question,
+      picked: pick === 'a' ? c.a : c.b,
+      history: c.hist
+    });
+    introHistMsg = '실제 역사에서는 ' + c.hist;
+    beep(520, 0.1, 'triangle');
+  }
+
+  // --- 엔티티 ---
+  function spawnEnemy() {
+    if (enemies.length >= MAX_ENEMIES) return;
+    const mode = STAGES[stageIndex].mode;
+    const dm = diffMul();
+    let e;
+    if (mode === 'sea') {
+      e = {
+        type: 'ship',
+        x: Math.random() * (W - 80) + 40,
+        y: -40,
+        vx: (Math.random() - 0.5) * 40,
+        vy: (60 + Math.random() * 40) * dm,
+        r: 26,
+        hp: 2,
+        retreating: false,
+        shoot: Math.random() < 0.3
+      };
+    } else if (mode === 'wall') {
+      const side = Math.random() < 0.5 ? 'bottom' : 'side';
+      if (side === 'bottom') {
+        e = { type: 'soldier', x: Math.random() * (W - 100) + 50, y: H + 20, vx: 0, vy: -(45 + Math.random() * 25) * dm, r: 16, hp: 1, retreating: false };
+      } else {
+        e = { type: 'boat', x: Math.random() < 0.5 ? -30 : W + 30, y: H * 0.55 + Math.random() * 120, vx: (Math.random() < 0.5 ? 1 : -1) * 55 * dm, vy: -15, r: 22, hp: 2, retreating: false };
+      }
+    } else {
+      e = {
+        type: 'soldier',
+        x: Math.random() * (W - 80) + 40,
+        y: H + 15,
+        vx: (Math.random() - 0.5) * 30,
+        vy: -(50 + Math.random() * 35 * (1 + stageTimer / STAGE3_DURATION)) * dm,
+        r: 15,
+        hp: 1,
+        retreating: false
+      };
+    }
+    enemies.push(e);
+  }
+
+  function nearestEnemy() {
+    let best = null, bd = 1e9;
+    for (const e of enemies) {
+      if (e.retreating) continue;
+      const d = Math.hypot(e.x - player.x, e.y - player.y);
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
+
+  function shootBullet() {
+    if (bullets.length >= MAX_BULLETS) return;
+    let angle = player.angle;
+    const target = nearestEnemy();
+    if (touchJoystick.active && target) {
+      angle = Math.atan2(target.y - player.y, target.x - player.x);
+    } else if (keys.ArrowUp || keys.KeyW) angle = -Math.PI / 2;
+    else if (keys.ArrowDown || keys.KeyS) angle = Math.PI / 2;
+    else if (keys.ArrowLeft || keys.KeyA) angle = Math.PI;
+    else if (keys.ArrowRight || keys.KeyD) angle = 0;
+    else if (target) angle = Math.atan2(target.y - player.y, target.x - player.x);
+    const spd = 520;
+    bullets.push({
+      x: player.x + Math.cos(angle) * (player.r + 4),
+      y: player.y + Math.sin(angle) * (player.r + 4),
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      life: 1.2
+    });
+    beep(180, 0.04, 'square');
+    player.angle = angle;
+  }
+
+  function hitEnemy(e, bi) {
+    e.hp--;
+    particles.push({ x: e.x, y: e.y, t: 0, kind: 'smoke' });
+    beep(90, 0.06, 'sawtooth');
+    score += 10;
+    stageStats.hits++;
+    if (e.hp <= 0) {
+      e.retreating = true;
+      if (e.type === 'ship' || e.type === 'boat') {
+        e.vy = -120; e.vx *= 0.5;
+      } else {
+        e.vy = 80; e.vx *= 2;
+      }
+    }
+    bullets.splice(bi, 1);
+  }
+
+  function damagePlayer(amount) {
+    morale -= amount * (difficulty === 'easy' ? 0.7 : 1);
+    if (morale <= 0) {
+      morale = 0;
+      state = 'retreat';
+    }
+  }
+
+  function updatePlay(dt) {
+    stageTimer -= dt;
+    stageStats.survived += dt;
+    if (stageIndex === 2 && stageTimer <= 0) {
+      state = 'ending';
+      setBest(score);
+      return;
+    }
+    if (stageIndex < 2 && stageTimer <= 0) {
+      state = 'stageEnd';
+      setBest(score);
+      return;
+    }
+
+    const mode = STAGES[stageIndex].mode;
+    const { mx, my } = moveInput();
+    const speed = mode === 'sea' ? 280 : 240;
+    player.x += mx * speed * dt;
+    player.y += my * speed * dt;
+
+    if (mode === 'sea') {
+      player.x = Math.max(40, Math.min(W - 40, player.x));
+      player.y = Math.max(H * 0.35, Math.min(H - 50, player.y));
+      scrollY += 80 * dt;
+    } else if (mode === 'wall') {
+      player.x = Math.max(60, Math.min(W - 60, player.x));
+      player.y = Math.max(H * 0.22, Math.min(H * 0.42, player.y));
+    } else {
+      player.x = Math.max(50, Math.min(W - 50, player.x));
+      player.y = Math.max(H * 0.35, Math.min(H * 0.55, player.y));
+    }
+
+    const fireRate = (touchJoystick.active ? 0.22 : 0.14) / modifiers.fireMul;
+    if (shooting()) {
+      fireCooldown -= dt;
+      if (fireCooldown <= 0) {
+        shootBullet();
+        fireCooldown = fireRate;
+      }
+    } else fireCooldown = Math.min(fireCooldown, 0);
+
+    spawnTimer -= dt;
+    const spawnInt = (mode === 'jeju' ? 0.85 : 1.1) / diffMul();
+    if (spawnTimer <= 0) { spawnEnemy(); spawnTimer = spawnInt; }
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0 || b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20) bullets.splice(i, 1);
+    }
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (!e.retreating) {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+        if (mode === 'sea' && e.shoot && Math.random() < 0.02 * diffMul()) {
+          const ang = Math.atan2(player.y - e.y, player.x - e.x);
+          bullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * 280, vy: Math.sin(ang) * 280, life: 2, foe: true });
+        }
+      } else {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+      }
+      if (e.y < -80 || e.y > H + 80 || e.x < -80 || e.x > W + 80) { enemies.splice(i, 1); continue; }
+
+      if (!e.retreating) {
+        const d = Math.hypot(e.x - player.x, e.y - player.y);
+        if (d < e.r + player.r - 4) damagePlayer(12 * dt * 3);
+      }
+      for (let j = bullets.length - 1; j >= 0; j--) {
+        const b = bullets[j];
+        if (b.foe) {
+          if (Math.hypot(b.x - player.x, b.y - player.y) < player.r + 6) {
+            damagePlayer(8);
+            bullets.splice(j, 1);
+          }
+          continue;
+        }
+        if (!e.retreating && Math.hypot(b.x - e.x, b.y - e.y) < e.r + 4) hitEnemy(e, j);
+      }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      particles[i].t += dt;
+      if (particles[i].t > 0.6) particles.splice(i, 1);
+    }
+  }
+
+  function update(dt) {
+    if (state === 'play') updatePlay(dt);
+  }
+
+  // --- 그리기 ---
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBtn(b, primary) {
+    ctx.fillStyle = primary ? '#c45c26' : '#5a4a3a';
+    roundRect(b.x, b.y, b.w, b.h, 10);
+    ctx.fill();
+    ctx.strokeStyle = '#f0e6d8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 22px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2);
+  }
+
+  function drawSea() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#3d6b8a');
+  g.addColorStop(1, '#1e4460');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  for (let i = 0; i < 12; i++) {
+    const y = ((i * 60 + scrollY) % (H + 60)) - 30;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= W; x += 40)
+      ctx.lineTo(x, y + Math.sin((x + scrollY) * 0.02) * 6);
+    ctx.stroke();
+  }
+  }
+
+  function drawWallStage() {
+    ctx.fillStyle = '#6b8f71';
+    ctx.fillRect(0, H * 0.5, W, H * 0.5);
+    ctx.fillStyle = '#8a7355';
+    ctx.fillRect(0, 0, W, H * 0.18);
+    ctx.fillStyle = '#a09078';
+    for (let x = 0; x < W; x += 50) {
+      ctx.fillRect(x, H * 0.15, 45, H * 0.06);
+    }
+    ctx.fillStyle = '#5c4030';
+    ctx.fillRect(0, H * 0.38, W, 18);
+    ctx.fillStyle = '#d4a574';
+    roundRect(W / 2 - 60, H * 0.08, 120, 50, 6);
+    ctx.fill();
+    ctx.fillStyle = '#8b2500';
+    ctx.fillRect(W / 2 - 4, H * 0.05, 8, 35);
+  }
+
+  function drawJeju() {
+    ctx.fillStyle = '#4a7c59';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#c9b896';
+    ctx.beginPath();
+    ctx.moveTo(W * 0.2, H * 0.55);
+    ctx.lineTo(W * 0.5, H * 0.25);
+    ctx.lineTo(W * 0.8, H * 0.55);
+    ctx.lineTo(W * 0.75, H * 0.7);
+    ctx.lineTo(W * 0.25, H * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#7a6a55';
+    roundRect(W / 2 - 90, H * 0.38, 180, 80, 8);
+    ctx.fill();
+    ctx.fillStyle = '#4a3728';
+    ctx.font = '18px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.fillText('항파두리성', W / 2, H * 0.43);
+  }
+
+  function drawShip(x, y, r, color, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle || 0);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.9, r * 0.6);
+    ctx.lineTo(-r * 0.9, r * 0.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#e8dcc8';
+    ctx.fillRect(-r * 0.15, -r * 1.2, r * 0.3, r * 0.5);
+    ctx.restore();
+  }
+
+  function drawSoldier(e) {
+    ctx.fillStyle = e.retreating ? '#888' : '#4a5a6a';
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fill();
+    if (!e.retreating) {
+      ctx.fillStyle = '#c9a227';
+      ctx.fillRect(e.x - 10, e.y - 6, 20, 14);
+    }
+  }
+
+  function drawPlayer() {
+    const mode = STAGES[stageIndex].mode;
+    if (mode === 'sea') drawShip(player.x, player.y, player.r, '#8b4513', player.angle + Math.PI / 2);
+    else {
+      ctx.fillStyle = '#2f5f8f';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#b22222';
+      ctx.fillRect(player.x - 3, player.y - player.r - 12, 6, 18);
+    }
+  }
+
+  function drawHUD() {
+    const barW = 280, barH = 22;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    roundRect(24, 20, barW + 16, barH + 16, 8);
+    ctx.fill();
+    ctx.fillStyle = '#333';
+    roundRect(32, 28, barW, barH, 6);
+    ctx.fill();
+    const pct = morale / (moraleMax + modifiers.moraleBonus);
+    ctx.fillStyle = pct > 0.35 ? '#5cb85c' : '#e8a735';
+    roundRect(32, 28, barW * Math.max(0, Math.min(1, pct)), barH, 6);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 18px ' + FONT;
+    ctx.textAlign = 'left';
+    ctx.fillText('사기·방패', 32, 22);
+    ctx.textAlign = 'right';
+    ctx.fillText('점수 ' + score, W - 32, 40);
+    ctx.textAlign = 'left';
+    ctx.font = '20px ' + FONT;
+    const mins = Math.floor(stageTimer / 60);
+    const secs = Math.floor(stageTimer % 60);
+    ctx.fillText('남은 시간 ' + mins + ':' + (secs < 10 ? '0' : '') + secs, 32, 72);
+    ctx.fillText(STAGES[stageIndex].title, 32, 98);
+  }
+
+  function drawJoystick() {
+    if (!touchJoystick.active && state !== 'play') return;
+    if (state !== 'play') return;
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(touchJoystick.ox, touchJoystick.oy, 72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(touchJoystick.x, touchJoystick.y, 36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMuteBtn() {
+    const b = muteBtnDef();
+    uiButtons.push(b);
+    drawBtn(b, false);
+  }
+
+  function drawStart() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#5c3d2e');
+    g.addColorStop(1, '#2a1810');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f5e6d3';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 44px ' + FONT;
+    ctx.fillText('삼별초, 어쩔 수 없는 선택', W / 2, H * 0.22);
+    ctx.font = '26px ' + FONT;
+    ctx.fillText('고려 시대 삼별초의 이야기를 배우는 슈팅 학습 게임', W / 2, H * 0.32);
+    ctx.font = '22px ' + FONT;
+    ctx.fillStyle = '#e8d4b8';
+    ctx.fillText('조작: 방향키/WASD 이동 · 스페이스 발사(누르고 있으면 연사) · P 일시정지', W / 2, H * 0.42);
+    ctx.fillText('태블릿: 왼쪽 절반 조이스틱 · 적에게 자동 조준 발사', W / 2, H * 0.48);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 24px ' + FONT;
+    ctx.fillText('난이도', W / 2, H * 0.56);
+    uiButtons = [
+      { id: 'easy', label: '쉬움', x: W / 2 - 200, y: H * 0.58, w: 120, h: 48 },
+      { id: 'normal', label: '보통', x: W / 2 + 80, y: H * 0.58, w: 120, h: 48 },
+      { id: 'start', label: '게임 시작', x: W / 2 - 100, y: H * 0.72, w: 200, h: 60 }
+    ];
+    uiButtons.forEach(b => {
+      if (b.id === 'easy') ctx.fillStyle = difficulty === 'easy' ? '#c45c26' : '#5a4a3a';
+      else if (b.id === 'normal') ctx.fillStyle = difficulty === 'normal' ? '#c45c26' : '#5a4a3a';
+      else ctx.fillStyle = '#c45c26';
+      drawBtn(b, true);
+    });
+    ctx.fillStyle = '#aaa';
+    ctx.font = '18px ' + FONT;
+    ctx.fillText('최고 점수: ' + getBest(), W / 2, H * 0.88);
+    drawMuteBtn();
+  }
+
+  function drawIntro() {
+    ctx.fillStyle = '#3a3028';
+    ctx.fillRect(0, 0, W, H);
+    const s = STAGES[stageIndex];
+    ctx.fillStyle = '#f5e6d3';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 36px ' + FONT;
+    ctx.fillText(s.title, W / 2, 80);
+    ctx.font = '26px ' + FONT;
+    let y = 180;
+    s.intro.forEach(line => { ctx.fillText(line, W / 2, y); y += 48; });
+    if (introHistMsg) {
+      ctx.fillStyle = '#c8d8b0';
+      ctx.font = '20px ' + FONT;
+      wrapText(introHistMsg, W / 2, y + 20, W - 160, 30, '20px');
+    }
+    uiButtons = [{ id: 'next', label: '시작하기', x: W / 2 - 90, y: H - 100, w: 180, h: 56 }];
+    drawBtn(uiButtons[0], true);
+  }
+
+  function drawChoice() {
+    const cIdx = Math.min(choiceRecord.length, 2);
+    const c = CHOICES[cIdx];
+    ctx.fillStyle = '#2e2830';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f0e0c8';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px ' + FONT;
+    ctx.fillText('어쩔 수 없는 선택', W / 2, 56);
+    wrapText(c.question, W / 2, 120, W - 120, 34, '26px');
+
+    const cardY = 200;
+    const views = [
+      ['삼별초의 입장', c.views.sam],
+      ['고려 조정의 입장', c.views.court],
+      ['백성의 입장', c.views.people]
+    ];
+    views.forEach((v, i) => {
+      const cy = cardY + i * 100;
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      roundRect(80, cy, W - 160, 82, 10);
+      ctx.fill();
+      ctx.fillStyle = '#e8a050';
+      ctx.font = 'bold 20px ' + FONT;
+      ctx.textAlign = 'left';
+      ctx.fillText(v[0], 100, cy + 32);
+      ctx.fillStyle = '#ddd';
+      ctx.font = '20px ' + FONT;
+      wrapText(v[1], 100, cy + 58, W - 200, 26, '20px', 'left');
+    });
+
+    uiButtons = [
+      { id: 'pickA', label: c.a, x: 120, y: H - 130, w: (W - 280) / 2, h: 64 },
+      { id: 'pickB', label: c.b, x: W / 2 + 40, y: H - 130, w: (W - 280) / 2, h: 64 }
+    ];
+    uiButtons.forEach((b, i) => drawBtn(b, choiceHover === i));
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#999';
+    ctx.font = '18px ' + FONT;
+    ctx.fillText('어느 쪽을 골라도 역사는 이어집니다. 선택은 작은 도움만 줘요.', W / 2, H - 40);
+  }
+
+  function wrapText(text, x, y, maxW, lineH, font, align) {
+    ctx.font = (font || '26px') + ' ' + FONT;
+    ctx.textAlign = align || 'center';
+    const words = text.split(' ');
+    let line = '';
+    let cy = y;
+    const chars = text.split('');
+    if (text.match(/[가-힣]/)) {
+      line = '';
+      for (let i = 0; i < chars.length; i++) {
+        const test = line + chars[i];
+        if (ctx.measureText(test).width > maxW && line) {
+          ctx.fillText(line, x, cy);
+          line = chars[i];
+          cy += lineH;
+        } else line = test;
+      }
+      if (line) ctx.fillText(line, x, cy);
+    } else {
+      for (let n = 0; n < words.length; n++) {
+        const test = line + words[n] + ' ';
+        if (ctx.measureText(test).width > maxW && n > 0) {
+          ctx.fillText(line, x, cy);
+          line = words[n] + ' ';
+          cy += lineH;
+        } else line = test;
+      }
+      ctx.fillText(line, x, cy);
+    }
+  }
+
+  function drawPlay() {
+    const mode = STAGES[stageIndex].mode;
+    if (mode === 'sea') drawSea();
+    else if (mode === 'wall') drawWallStage();
+    else drawJeju();
+
+    enemies.forEach(e => {
+      if (e.type === 'ship') drawShip(e.x, e.y, e.r, e.retreating ? '#666' : '#3a5068', Math.PI / 2);
+      else if (e.type === 'boat') drawShip(e.x, e.y, e.r, '#555', 0);
+      else drawSoldier(e);
+    });
+
+    ctx.fillStyle = '#333';
+    bullets.forEach(b => {
+      if (b.foe) ctx.fillStyle = '#5a3820';
+      else ctx.fillStyle = '#f4d03f';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.foe ? 5 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    particles.forEach(p => {
+      ctx.fillStyle = 'rgba(200,200,200,' + (1 - p.t / 0.6) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 12 + p.t * 20, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    drawPlayer();
+    drawHUD();
+    drawJoystick();
+    uiButtons = [{ id: 'pause', label: 'Ⅱ', x: W - 56, y: 68, w: 44, h: 44 }];
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    roundRect(uiButtons[0].x, uiButtons[0].y, 44, 44, 8);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 22px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.fillText('Ⅱ', uiButtons[0].x + 22, uiButtons[0].y + 26);
+    drawMuteBtn();
+  }
+
+  function drawPause() {
+    drawPlay();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 40px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.fillText('일시 정지', W / 2, H / 2 - 20);
+    ctx.font = '22px ' + FONT;
+    ctx.fillText('P 키 또는 아래 버튼으로 계속하기', W / 2, H / 2 + 30);
+    uiButtons = [
+      { id: 'resume', label: '계속하기', x: W / 2 - 90, y: H / 2 + 60, w: 180, h: 52 }
+    ];
+    drawBtn(uiButtons[0], true);
+  }
+
+  function drawRetreat() {
+    drawPlay();
+    ctx.fillStyle = 'rgba(40,30,20,0.75)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f5e6d3';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 36px ' + FONT;
+    ctx.fillText('잠시 물러납니다', W / 2, H / 2 - 50);
+    ctx.font = '24px ' + FONT;
+    ctx.fillText('사기가 떨어져 잠깐 쉬어요. 다시 도전해 볼까요?', W / 2, H / 2);
+    uiButtons = [
+      { id: 'retry', label: '다시 도전', x: W / 2 - 170, y: H / 2 + 40, w: 150, h: 52 },
+      { id: 'menu', label: '처음으로', x: W / 2 + 20, y: H / 2 + 40, w: 150, h: 52 }
+    ];
+    uiButtons.forEach(b => drawBtn(b, b.id === 'retry'));
+  }
+
+  function drawStageEnd() {
+    ctx.fillStyle = '#2a3a32';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#e8f0e8';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 34px ' + FONT;
+    ctx.fillText(STAGES[stageIndex].title + ' 완료!', W / 2, 100);
+    ctx.font = '24px ' + FONT;
+    ctx.fillText('잘 버텼어요! 다음 선택과 이야기로 넘어갑니다.', W / 2, 160);
+    uiButtons = [{ id: 'next', label: '다음', x: W / 2 - 80, y: H - 90, w: 160, h: 56 }];
+    drawBtn(uiButtons[0], true);
+  }
+
+  function drawEnding() {
+    ctx.fillStyle = '#1e2430';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f0e8dc';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 34px ' + FONT;
+    ctx.fillText('항파두리성의 마지막', W / 2, 48);
+    ctx.font = '22px ' + FONT;
+    ctx.fillStyle = '#c9d4e8';
+    wrapText('1273년 항파두리성이 함락되며 삼별초의 항쟁은 역사 속에 남았습니다. 당신이 버틴 시간과 점수는 용기의 기록이에요.', W / 2, 95, W - 100, 30, '22px');
+
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 20px ' + FONT;
+    ctx.fillStyle = '#e8a050';
+    ctx.fillText('나의 선택', 80, 165);
+    ctx.fillText('실제 역사', W / 2 + 40, 165);
+    let y = 195;
+    choiceRecord.forEach(rec => {
+      ctx.fillStyle = '#ccc';
+      ctx.font = '17px ' + FONT;
+      wrapText(rec.picked, 80, y, W / 2 - 120, 22, '17px', 'left');
+      wrapText(rec.history, W / 2 + 40, y, W / 2 - 120, 22, '17px', 'left');
+      y += 52;
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = '22px ' + FONT;
+    const survMin = Math.floor(stageStats.survived / 60);
+    const survSec = Math.floor(stageStats.survived % 60);
+    ctx.fillText('점수: ' + score + '  |  3단계 버틴 시간: ' + survMin + '분 ' + survSec + '초  |  최고 점수: ' + getBest(), W / 2, H - 220);
+    ctx.fillStyle = '#b8c8e8';
+    ctx.font = 'bold 22px ' + FONT;
+    ctx.fillText('토론해 볼까요?', W / 2, H - 175);
+    ctx.font = '19px ' + FONT;
+    wrapText('삼별초의 선택은 정말 어쩔 수 없었을까?', W / 2, H - 145, W - 80, 26, '19px');
+    wrapText('· 백성은 어떤 마음이었을까?  · 조정과 삼별초 중 누구 말에 귀 기울였을까?', W / 2, H - 105, W - 80, 24, '19px');
+
+    uiButtons = [
+      { id: 'again', label: '다시 하기', x: W / 2 - 170, y: H - 100, w: 150, h: 52 },
+      { id: 'menu', label: '처음으로', x: W / 2 + 20, y: H - 100, w: 150, h: 52 }
+    ];
+    uiButtons.forEach(b => drawBtn(b, true));
+    drawMuteBtn();
+  }
+
+  function render() {
+    uiButtons = [];
+    if (state === 'start') drawStart();
+    else if (state === 'intro') drawIntro();
+    else if (state === 'choice') drawChoice();
+    else if (state === 'play') drawPlay();
+    else if (state === 'pause') drawPause();
+    else if (state === 'retreat') drawRetreat();
+    else if (state === 'stageEnd') drawStageEnd();
+    else if (state === 'ending') drawEnding();
+  }
+
+  function clickUI(x, y) {
+    const hit = uiButtons.find(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+    if (!hit) {
+      if (state === 'choice') {
+        const cIdx = choiceRecord.length === 0 ? 0 : (choiceRecord.length === 1 ? 1 : 2);
+        const opts = [
+          { id: 'pickA', x: 120, y: H - 130, w: (W - 280) / 2, h: 64 },
+          { id: 'pickB', x: W / 2 + 40, y: H - 130, w: (W - 280) / 2, h: 64 }
+        ];
+        opts.forEach((b, i) => {
+          if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+            applyChoice(cIdx, i === 0 ? 'a' : 'b');
+            if (cIdx === 0) startIntro(0);
+            else if (cIdx === 1) startIntro(1);
+            else startIntro(2);
+          }
+        });
+      }
+      return;
+    }
+    beep(300, 0.05, 'sine');
+  if (hit.id === 'mute') { muted = !muted; return; }
+  if (hit.id === 'easy') difficulty = 'easy';
+  if (hit.id === 'normal') difficulty = 'normal';
+  if (hit.id === 'start') {
+    score = 0;
+    modifiers = { fireMul: 1, moraleBonus: 0 };
+    choiceRecord = [];
+    showChoice();
+  }
+  if (hit.id === 'next' && state === 'intro') beginPlay();
+    if (hit.id === 'next' && state === 'stageEnd') showChoice();
+  if (hit.id === 'pause') togglePause();
+  if (hit.id === 'resume') togglePause();
+  if (hit.id === 'retry') beginPlay();
+  if (hit.id === 'menu' || hit.id === 'again') {
+    if (hit.id === 'again') {
+      score = 0;
+      modifiers = { fireMul: 1, moraleBonus: 0 };
+      choiceRecord = [];
+      state = 'start';
+    } else state = 'start';
+  }
+  if (hit.id === 'pickA' || hit.id === 'pickB') {
+    const cIdx = choiceRecord.length;
+    applyChoice(cIdx, hit.id === 'pickA' ? 'a' : 'b');
+    if (cIdx === 0) startIntro(0);
+    else if (cIdx === 1) startIntro(1);
+    else startIntro(2);
+  }
+  }
+
+  // choice click은 render 후 uiButtons에 있음 - mousedown에서 hit 체크 timing
+  const _clickUI = clickUI;
+  clickUI = function (x, y) {
+    render();
+    _clickUI(x, y);
+  };
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000 || 0.016);
+    lastTime = now;
+    if (state === 'play') update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
